@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:focusableInTouchMode="true"
+    android:focusable="true"
+    tools:context=".activity.MainActivity">
+    <TextView
+        android:id="@+id/show_battery"
+        android:paddingLeft="10dp"
+        android:focusable="true"
+        android:text="0%"
+        android:layout_marginLeft="20dp"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/colorPrimary"
+        android:paddingRight="20dp"
+        android:gravity="center_vertical|left"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp" />
+    <TextView
+        android:id="@+id/show_rssi"
+        android:text="PDA: -0"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_gravity="right"
+        android:textColor="@color/colorPrimary"
+        android:paddingRight="20dp"
+        android:layout_marginRight="50dp"
+        android:gravity="center_vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp" />
+    <TextView
+        android:id="@+id/show_rssi_bg"
+        android:text="BG: -0"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_gravity="right"
+        android:textColor="@color/colorPrimary"
+        android:paddingRight="5dp"
+        android:gravity="center_vertical"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp" />
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <TextView
+            android:text="SCAN DATA"
+            android:gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="40dp" />
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="100dp">
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <TextView
+                android:padding="5dp"
+                android:background="#F0F0F0"
+                android:layout_gravity="center_horizontal"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:text=""
+                android:minHeight="100dp"
+                android:lineSpacingExtra="10dp"
+                android:id="@+id/scan_result"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+        </ScrollView>
+
+
+            <TextView
+                android:layout_marginTop="10dp"
+                android:text="SCAN HEX DATA"
+                android:gravity="center"
+                android:layout_width="match_parent"
+                android:layout_height="30dp" />
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="120dp">
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+            <TextView
+                android:paddingLeft="10dp"
+                android:paddingRight="10dp"
+                android:background="#F0F0F0"
+                android:layout_gravity="center_horizontal"
+                android:textSize="16sp"
+                android:gravity="start"
+                android:minHeight="120dp"
+                android:lineSpacingExtra="5dp"
+                android:id="@+id/device_info"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+        </ScrollView>
+        <TextView
+            android:layout_marginTop="10dp"
+            android:paddingLeft="10dp"
+            android:text="FULL HEX DATA"
+            android:gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="30dp" />
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="150dp">
+            <LinearLayout
+                android:orientation="vertical"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+                <TextView
+                    android:paddingLeft="10dp"
+                    android:paddingRight="10dp"
+                    android:background="#F0F0F0"
+                    android:layout_gravity="center_horizontal"
+                    android:textSize="16sp"
+                    android:gravity="start"
+                    android:lineSpacingExtra="6dp"
+                    android:id="@+id/scan_result_raw"
+                    android:minHeight="150dp"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+        </ScrollView>
+
+    </LinearLayout>
+
+
+
+    <EditText
+        android:id="@+id/editText"
+        android:hint="请输入字符"
+        android:gravity="center"
+        android:text="\@WLSRSS"
+        android:layout_gravity="bottom|center_horizontal"
+        android:background="#F0F0F0"
+        android:minHeight="60dp"
+        android:layout_marginBottom="80dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:layout_width="match_parent"
+        android:padding="5dp"
+        android:layout_height="70dp">
+        <TextView
+            android:background="@color/colorPrimary"
+            android:layout_marginRight="5dp"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:onClick="onWriteClick"
+            android:text="Write"
+            android:gravity="center"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"/>
+
+        <TextView
+            android:background="@color/colorPrimary"
+            android:layout_marginLeft="5dp"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:onClick="onReadClick"
+            android:text="电量"
+            android:gravity="center"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"/>
+        <TextView
+            android:background="@color/colorPrimary"
+            android:layout_marginLeft="5dp"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:onClick="onContinueClick"
+            android:text="获取"
+            android:gravity="center"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"/>
+        <TextView
+            android:background="@color/colorPrimary"
+            android:layout_marginLeft="5dp"
+            android:layout_weight="1"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:onClick="onTriggerClick"
+            android:text="扫码连接"
+            android:gravity="center"
+            android:textSize="16sp"
+            android:textColor="#FFFFFF"/>
+    </LinearLayout>
+
+</FrameLayout>
