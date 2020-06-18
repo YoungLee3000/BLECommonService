@@ -30,6 +30,7 @@ import com.nlscan.blecommservice.IScanConfigCallback;
 import com.nlscan.blecommservice.utils.UUIDManager;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
@@ -48,6 +49,7 @@ public class BleService extends Service{
     private String mLastConnectedDeviceAddress;
     private BleController mBleController;
     private String mCurrentACLAddress;//ACL BOUND STATUS 11
+    private boolean mIfConnect = false;
 
     private final int MSG_WHAT_BATTERY       = 0x00; // get battery level
     private final int MSG_WHAT_CHARGE_STATE  = 0x10; // get charge state
@@ -55,13 +57,15 @@ public class BleService extends Service{
 
 
     //uhf 数据相关
-    public static final String START_SET_PARAM_COMMAND_HEX = "47FF";//设置参数返回结果
-    public static final String START_READ_PARAM_COMMAND_HEX = "47DD";//读取参数返回结果
-    public static final String START_UHF_DATA_HEX = "AABB";//uhf数据返回结果
+
+
+    public static final String START_UHF_COMMAND_HEX = "7EFF";//uhf命令开头
+
+    public static final String RESPONE_UHF_PREFIX_HEX = "02FF";//uhf响应格式
 
     private Stack<String> mSetStack = new Stack<>();
-    private Stack<String> mReadStack = new Stack<>();
-    private List<String> mUhfList = new ArrayList<>();
+
+    private LinkedList<String> mUhfList = new LinkedList<>();
 
     private static final String FAILED_STR = "failed";
 
@@ -158,70 +162,73 @@ public class BleService extends Service{
 
         }
 
+
+
+
         /**
-         * 设置uhf参数
-         * @param key
-         * @param value
+         * 发送uhf命令
+         * @param command
          * @return
          * @throws RemoteException
          */
         @Override
-        public int setUhfParam(String key, String value) throws RemoteException {
+        public String sendUhfCommand(String command) throws RemoteException {
             mSetStack.clear();
+
+//            if (command.substring(4,6).equals("22")) return "FF0422000004000002B76E";
             new Timer().schedule(new TimerTask() {
                 @Override
                 public void run() {
                     mSetStack.add(FAILED_STR);
                     this.cancel();
                 }
-            },1000);
-            mBleController.writeBluetoothData(mBluetoothGatt,key+";"+value);
+            },500);
+
+            String operateCode = command.length() >= 6 ? command.substring(4,6) : "";
+
+
+
+            mBleController.writeBluetoothData(mBluetoothGatt,START_UHF_COMMAND_HEX +
+                    String.format("%04X",command.length()/2)  +  command);
 
             while (mSetStack.size() == 0){}
             String resultStr = mSetStack.pop();
-            int resultCode = FAILED_STR.equals(resultStr) ? 0 : 1;
+            Log.d(TAG,"the return str is " + resultStr);
 
-            return resultCode;
-        }
+            if (resultStr.startsWith("FF")){
+                String relOperate = resultStr.length() >= 6 ? resultStr.substring(4,6) : "";
+                if ("".equals(relOperate) || ! relOperate.equals(operateCode))
+                    return  FAILED_STR;
+            }
 
-        /**
-         * 获取uhf参数
-         * @param key
-         * @return
-         * @throws RemoteException
-         */
-        @Override
-        public String getUhfParam(String key) throws RemoteException {
-            mReadStack.clear();
-            new Timer().schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    mReadStack.add(FAILED_STR);
-                    this.cancel();
-                }
-            },1000);
-            mBleController.writeBluetoothData(mBluetoothGatt,key);
-
-            while (mSetStack.size() == 0){}
-            String resultStr = mSetStack.pop();
 
 
             return resultStr;
+
+
         }
 
+
         @Override
-        public String[] getUhfData() throws RemoteException {
-            String [] strArray = new String[mUhfList.size()];
-            for(int i=0; i<strArray.length; i++){
-                strArray[i] = mUhfList.get(i);
+        public String getUhfTagData() throws RemoteException {
+            if (mUhfList.size() > 0) {
+                return  mUhfList.poll();
             }
+            else {
+                return FAILED_STR;
+            }
+        }
+
+
+        @Override
+        public void clearUhfTagData() throws RemoteException {
             mUhfList.clear();
-            return strArray;
         }
 
         @Override
         public boolean isBleAccess() throws RemoteException {
-            return mCurrentACLAddress != null;
+//            return mCurrentACLAddress != null;
+            return mIfConnect;
         }
     };
     private Handler mHandler;
@@ -318,6 +325,7 @@ public class BleService extends Service{
                             if (device.getBondState() == BluetoothDevice.BOND_BONDED &&  isBLEDevice(device.getAddress())) {
                                 //findBleDeviceToConnect(device.getAddress());
                             }*/
+                            mIfConnect = true;
                         }else if (newConnState == BluetoothAdapter.STATE_DISCONNECTED) {
                             Log.i(TAG, "ACTION_CONNECTION_STATE_CHANGED  STATE_DISCONNECTED: " + device.getName() +
                                     " " + device.getAddress() + " boundState: " + device.getBondState());
@@ -328,6 +336,7 @@ public class BleService extends Service{
                                     disconnect();
                                 }
                             }
+                            mIfConnect = false;
                         }
                     }
 
@@ -440,6 +449,7 @@ public class BleService extends Service{
      */
     boolean foundDevice = false;
     public void findBleDeviceToConnect(String address){
+        mIfConnect = true;
         Log.i(TAG, "findBleDeviceToConnect:  address:" + address + " adapter: "+(mBluetoothAdapter!=null)+" enable: "+(mBluetoothAdapter!=null ?mBluetoothAdapter.isEnabled():false));
         mCurrentACLAddress = null;
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
@@ -642,14 +652,24 @@ public class BleService extends Service{
             super.onCharacteristicChanged(gatt, characteristic);
             if (UUIDManager.NOTIFY_UUID.toString().equals(characteristic.getUuid().toString())) {
                 String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
+//                Log.d(TAG,"receive origin :{" + rawHexString + "}");
+//                Log.d(TAG,"receive real str :{" +BluetoothUtils.hexStringToString(rawHexString) + "}" );
+//                rawHexString = rawHexString.substring(26,rawHexString.length()-5);
+//                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
                 Log.v(TAG, "onCharacteristicChanged  receivedata: hex: ["+ rawHexString +"]");
-                if (rawHexString != null && rawHexString.startsWith(START_UHF_DATA_HEX))
-                    solveUhfData(rawHexString);
-//                if (mBleController != null) {
-//                    if (mBleController.sendResponsePacket(gatt, rawHexString)){//应答
-//                        mBleController.sendScanResult(rawHexString);//发送数据
-//                    }
-//                }
+
+                if (mBleController != null) {
+                    if (mBleController.sendResponsePacket(gatt, rawHexString)){//应答
+                        mBleController.sendScanResult(rawHexString);//发送数据
+                    }
+                }
+
+                String uhfResult = mBleController.getUhfResult();
+                if (uhfResult != null)
+                    solveUhfData(uhfResult);
+
+
+
             }else {
                 Log.v(TAG, "onCharacteristicChanged "+ characteristic.getUuid());
             }
@@ -666,16 +686,13 @@ public class BleService extends Service{
             super.onCharacteristicWrite(gatt, characteristic, status);
             if (status == BluetoothGatt.GATT_SUCCESS) { //写出成功
                 String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
+//                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
                 Log.v(TAG,"onCharacteristicWrite hex: [" + rawHexString +"]");
                 //on write finish handle
-                if(rawHexString != null && rawHexString.startsWith(START_SET_PARAM_COMMAND_HEX)){
-                    handleSetParam(rawHexString);
-                }
-                else if(rawHexString != null && rawHexString.startsWith(START_READ_PARAM_COMMAND_HEX)){
-                    handleReadParam(rawHexString);
-                }
 
-                //mBleController.onCharacteristicWriteFinishHandle(BluetoothUtils.bytesToHexString(characteristic.getValue()));
+                if (rawHexString != null && rawHexString.substring(4,6).equals("22"))
+                    handleSetParam("FF0422000004000002B76E");
+
             }else {
                 Log.v(TAG,"onCharacteristicWrite failed " + status);
             }
@@ -720,7 +737,16 @@ public class BleService extends Service{
      * 处理接收到的UHF数据
      */
     private void solveUhfData(String uhfData){
-        mUhfList.add(uhfData);
+
+        Log.d(TAG,"UHF received data [" + uhfData + "]");
+
+        if (uhfData.substring(4,6).equals("29")){
+            mUhfList.add(uhfData);//盘点数据
+        }
+        else{
+            mSetStack.add(uhfData);//设置结果
+        }
+
     }
 
     /**
@@ -735,7 +761,7 @@ public class BleService extends Service{
      *处理读取到的参数
      */
     private void handleReadParam(String readData){
-        mReadStack.add(readData);
+
     }
 
     @Override

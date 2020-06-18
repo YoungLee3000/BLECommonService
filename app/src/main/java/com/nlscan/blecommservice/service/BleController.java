@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
+import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.nlscan.blecommservice.IBatteryChangeListener;
@@ -16,8 +17,10 @@ import com.nlscan.blecommservice.utils.UUIDManager;
 import com.nlscan.blecommservice.utils.BluetoothUtils;
 import com.nlscan.blecommservice.utils.CodeType;
 
+import java.util.LinkedList;
+
 public class BleController {
-    private static final String TAG = "BleController";
+    private static final String TAG = "BleService";
     private final Context mContext;
     //private final Context mContext;
     private IBleScanCallback mScanCallback;//scan
@@ -28,6 +31,13 @@ public class BleController {
     private IScanConfigCallback scanConfigOneCallback;
     private IScanConfigCallback scanConfigSecondCallback;
 
+    //uhf相关
+    private static final String RESPONE_UHF_PREFIX_HEX = "02FF";//uhf响应格式
+    private LinkedList<String> mUhfList = new LinkedList<>();
+
+    public String getUhfResult(){
+        return   mUhfList.size() > 0 ? mUhfList.poll() : null;
+    }
 
     public BleController(Context context) {
         mContext = context;
@@ -67,6 +77,7 @@ public class BleController {
         // 会回调BluetoothGattCallback里面的write方法
         writeCharact.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
         byte[] hexBytes = BluetoothUtils.getHexBytes(data);
+        Log.d(TAG,"the bytes are " + hexBytes.length);
         writeCharact.setValue(hexBytes);
         return gatt.writeCharacteristic(writeCharact);
     }
@@ -201,7 +212,11 @@ public class BleController {
                         handleConfigCallback(BluetoothUtils.subHexString(dataFiled,12,6));
                     }else if (dataFiled.startsWith("7E")){//兼容处理枪的数据 only for test
                         postData(BluetoothUtils.subHexString(hexString, 48,6), 0,hexString);//保留 倒数 8~6位(0D) , 判断是不是 扫描数据
-                    }else {
+                    }else if(dataFiled.startsWith(RESPONE_UHF_PREFIX_HEX)){ //处理UHF模块返回数据
+                        mUhfList.add(BluetoothUtils.subHexString(dataFiled, 8,4));
+                        postData(dataFiled , BluetoothUtils.currentPacketCodeType, hexString);
+                    }
+                    else {
                         handleConfigCallbackReturnHex(dataFiled);
                     }
                 }else if (packetSum > 1){ // 分包处理
@@ -214,6 +229,8 @@ public class BleController {
                     if (data != null){
                         postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
                         BluetoothUtils.currentPacketCodeType = 0;
+                        if (data.startsWith(RESPONE_UHF_PREFIX_HEX))
+                            mUhfList.add(data);
                     }
                 }
             }

@@ -15,14 +15,14 @@ interface IBleInterface {
     //find badge ; set badge voice/ enable/dsiable
     void sendCommand(int cmd);
 
-    //set uhf param
-    int setUhfParam(String key,String value);
+    //send uhf command
+    String sendUhfCommand(String command);
 
-    //get uhf param
-    String getUhfParam(String key);
+    //get uhf tag data
+    String getUhfTagData();
 
-    //get uhf data
-    String [] getUhfData();
+    //clear the uhf tag data
+    void clearUhfTagData();
 
     //is the ble avilable
     boolean isBleAccess();

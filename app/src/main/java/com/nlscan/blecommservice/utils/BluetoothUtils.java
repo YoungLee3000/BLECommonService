@@ -29,6 +29,9 @@ public class BluetoothUtils {
     public static final String GET_CONFIG_CALLBACK_PACKET_END = "063B03"; // 获取配置回调固定数据域结束格式
 
 
+    private static final String RESPONE_UHF_PREFIX_HEX = "02FF";//uhf响应格式
+
+
     private static StringBuffer buffer;
 
     private static final String TAG = "BleService-Util";
@@ -71,6 +74,36 @@ public class BluetoothUtils {
             return false;
         }
     }
+
+
+    /**
+     * 将16进制字符转普通字符
+     * @param s
+     * @return
+     */
+    public static String hexStringToString(String s) {
+        if (s == null || s.equals("")) {
+            return null;
+        }
+        s = s.replace(" ", "");
+        byte[] baKeyword = new byte[s.length() / 2];
+        for (int i = 0; i < baKeyword.length; i++) {
+            try {
+                baKeyword[i] = (byte) (0xff & Integer.parseInt(s.substring(i * 2, i * 2 + 2), 16));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            s = new String(baKeyword, "UTF-8");
+            new String();
+        } catch (Exception e1) {
+            e1.printStackTrace();
+        }
+        return s;
+    }
+
+
     /**
      * 将字节 转换为16进制字符串
      *
@@ -95,7 +128,7 @@ public class BluetoothUtils {
     }
 
     /**
-     * 字符串转16进制
+     * 非16进制字符串转16进制
      * @param s
      * @return
      */
@@ -110,7 +143,7 @@ public class BluetoothUtils {
     }
 
     /**
-     * 将字符串转化为16进制的字节
+     * 将16进制字符串转化为16进制的字节
      *
      * @param message  需要被转换的16进制字符
      *
@@ -125,12 +158,21 @@ public class BluetoothUtils {
 
         byte[] bytes = new byte[len];
 
-        for (int i = 0, j = 0; j < len; i += 2, j++) {
-            hexStr[j] = "" + chars[i] + chars[i + 1];
-            bytes[j] = (byte) Integer.parseInt(hexStr[j], 16);
+        try {
+            for (int i = 0, j = 0; j < len; i += 2, j++) {
+                hexStr[j] = "" + chars[i] + chars[i + 1];
+                bytes[j] = (byte) Integer.parseInt(hexStr[j], 16);
+            }
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
         }
         return bytes;
     }
+
+
+
+
+
 
     /**
      * 16进制转换成字符串
@@ -187,6 +229,8 @@ public class BluetoothUtils {
 
         if (packetSum == packetIndex && buffer.length() == currentPacketLen*2) {
             currentPacketLen = 0;
+            if (buffer.toString().startsWith(RESPONE_UHF_PREFIX_HEX))
+                return subHexString(buffer.toString(),8,4);
             return subHexString(buffer.toString(),12,2);////保留 倒数 4~2位(0D) , 判断是不是 扫描数据
         }
         return null;

@@ -15,6 +15,7 @@ import android.os.RemoteException;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -37,6 +38,8 @@ public class MainActivity extends Activity {
 
     private static final String TAG = "BleService.Client";
     private TextView mTextView,mScanResultText,mScanRawResultText,mShowBattery,mShowRssi,mShowBGRssi;
+
+    private Button btnStartIvn,btnObtainIvn,btnSetPower,btnSetZone;
     private Handler handler;
     private BleServiceConnection mConnection = null;
     private BroadcastReceiver mBroadcastReceiver;
@@ -68,10 +71,62 @@ public class MainActivity extends Activity {
         mScanRawResultText =  findViewById(R.id.scan_result_raw);
         mShowBattery = findViewById(R.id.show_battery);
 
+        btnStartIvn = findViewById(R.id.btn_start_ivn);
+        btnObtainIvn = findViewById(R.id.btn_obtain_ivn);
+        btnSetPower = findViewById(R.id.btn_set_power);
+        btnSetZone = findViewById(R.id.btn_set_zone);
+
+
+        btnStartIvn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                writeUhfTest("FF052200000000C80877");
+            }
+        });
+
+
+        btnObtainIvn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                writeUhfTest("FF032900BF004B22");
+            }
+        });
+
+        btnSetPower.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                writeUhfTest("FF0691030103E80BB8EF08");
+            }
+        });
+
+        btnSetZone.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                writeUhfTest("FF0197064BBB");
+            }
+        });
+
+
+
         mBroadcastReceiver = new Broadcast();
         IntentFilter filter = new IntentFilter("nlscan.acation.getrssi");
         filter.addAction("nlscan.acation.getbgrssi");
         registerReceiver(mBroadcastReceiver,filter);
+    }
+
+
+    private void writeUhfTest(String str){
+        String writeState = "failed";
+        try {
+            writeState = mBleInterface.sendUhfCommand(str);
+
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+        if (writeState.equals("failed"))
+            Toast.makeText(MainActivity.this, "error", Toast.LENGTH_SHORT).show();
+//        else
+//            mScanResultText.setText(writeState);
     }
 
     class Broadcast extends BroadcastReceiver{
@@ -168,29 +223,39 @@ public class MainActivity extends Activity {
 
     public void onWriteClick(View view) {
         if (mBleInterface != null) {
-            boolean writeState = false;
+            String writeState = "";
+
             try {
+                Log.d(TAG," the blue access " + mBleInterface.isBleAccess());
                 String str = ((EditText) findViewById(R.id.editText)).getText().toString();
 
+
                 if (!TextUtils.isEmpty(str)){
-                    writeState = mBleInterface.setScanConfig(new IScanConfigCallback.Stub() {
-                        @Override
-                        public void onConfigCallback(final String str) throws RemoteException {
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Toast.makeText(MainActivity.this, ""+str, Toast.LENGTH_SHORT).show();
-                                }
-                            });
-                        }
-                    }, str);
+
+                    if (!str.startsWith("7EFF")) str = BluetoothUtils.stringtoHex(str);
+//                    writeState = mBleInterface.setScanConfig(new IScanConfigCallback.Stub() {
+//                        @Override
+//                        public void onConfigCallback(final String str) throws RemoteException {
+//                            runOnUiThread(new Runnable() {
+//                                @Override
+//                                public void run() {
+//                                    Toast.makeText(MainActivity.this, ""+str, Toast.LENGTH_SHORT).show();
+//                                }
+//                            });
+//                        }
+//                    }, str);
+                    writeState = mBleInterface.sendUhfCommand(str);
                 }
             } catch (RemoteException e) {
                 e.printStackTrace();
             }
-            if (!writeState){
+            if (writeState.equals("failed")){
                 Toast.makeText(MainActivity.this, "error", Toast.LENGTH_SHORT).show();
             }
+            else {
+//                mScanResultText.setText(writeState);
+            }
+
         }
     }
 
@@ -253,9 +318,9 @@ public class MainActivity extends Activity {
                 public void run() {
 
                     mScanResultText.setText("");
-                    mTextView.setText(data);
-                    mScanRawResultText.setText(rawHexData);
-                    Toast.makeText(MainActivity.this, ""+text, Toast.LENGTH_SHORT).show();
+//                    mTextView.setText(data);
+//                    mScanRawResultText.setText(rawHexData);
+//                    Toast.makeText(MainActivity.this, ""+text, Toast.LENGTH_SHORT).show();
                     File file = new File("/sdcard/scandata.txt");
                     try {
                         if (!file.exists())file.createNewFile();
