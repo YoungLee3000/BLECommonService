@@ -213,7 +213,8 @@ public class BleController {
                     }else if (dataFiled.startsWith("7E")){//兼容处理枪的数据 only for test
                         postData(BluetoothUtils.subHexString(hexString, 48,6), 0,hexString);//保留 倒数 8~6位(0D) , 判断是不是 扫描数据
                     }else if(dataFiled.startsWith(RESPONE_UHF_PREFIX_HEX)){ //处理UHF模块返回数据
-                        mUhfList.add(BluetoothUtils.subHexString(dataFiled, 8,4));
+                        Log.d(TAG,"uhf data is 1 " + dataFiled);
+                        mUhfList.add(BluetoothUtils.subHexString(dataFiled, 8,0));
                         postData(dataFiled , BluetoothUtils.currentPacketCodeType, hexString);
                     }
                     else {
@@ -229,8 +230,11 @@ public class BleController {
                     if (data != null){
                         postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
                         BluetoothUtils.currentPacketCodeType = 0;
-                        if (data.startsWith(RESPONE_UHF_PREFIX_HEX))
+                        if (data.startsWith(RESPONE_UHF_PREFIX_HEX)){
+                            Log.d(TAG,"uhf data is  2 " + data);
                             mUhfList.add(data);
+                        }
+
                     }
                 }
             }

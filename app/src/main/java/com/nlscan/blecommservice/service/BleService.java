@@ -176,20 +176,27 @@ public class BleService extends Service{
             mSetStack.clear();
 
 //            if (command.substring(4,6).equals("22")) return "FF0422000004000002B76E";
+            int timeout = command.substring(4,6).equals("29") ? 100 : 500;
             new Timer().schedule(new TimerTask() {
                 @Override
                 public void run() {
                     mSetStack.add(FAILED_STR);
                     this.cancel();
                 }
-            },500);
+            },timeout);
 
             String operateCode = command.length() >= 6 ? command.substring(4,6) : "";
 
 
 
-            mBleController.writeBluetoothData(mBluetoothGatt,START_UHF_COMMAND_HEX +
-                    String.format("%04X",command.length()/2)  +  command);
+            if (command.startsWith("FF")){
+                mBleController.writeBluetoothData(mBluetoothGatt,START_UHF_COMMAND_HEX +
+                        String.format("%04X",command.length()/2)  +  command);
+            }
+            else{
+                mBleController.writeBluetoothData(mBluetoothGatt, command);
+            }
+
 
             while (mSetStack.size() == 0){}
             String resultStr = mSetStack.pop();
@@ -740,7 +747,7 @@ public class BleService extends Service{
 
         Log.d(TAG,"UHF received data [" + uhfData + "]");
 
-        if (uhfData.substring(4,6).equals("29")){
+        if (uhfData.substring(4,6).equals("29") || uhfData.substring(4,6).equals("AA")){
             mUhfList.add(uhfData);//盘点数据
         }
         else{

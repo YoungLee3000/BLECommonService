@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
         btnSetPower.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeUhfTest("FF0691030103E80BB8EF08");
+                writeUhfTest("FF0691030103E80BB8BE25");
             }
         });
 
@@ -223,7 +223,7 @@ public class MainActivity extends Activity {
 
     public void onWriteClick(View view) {
         if (mBleInterface != null) {
-            String writeState = "";
+            boolean writeState = false;
 
             try {
                 Log.d(TAG," the blue access " + mBleInterface.isBleAccess());
@@ -232,24 +232,24 @@ public class MainActivity extends Activity {
 
                 if (!TextUtils.isEmpty(str)){
 
-                    if (!str.startsWith("7EFF")) str = BluetoothUtils.stringtoHex(str);
-//                    writeState = mBleInterface.setScanConfig(new IScanConfigCallback.Stub() {
-//                        @Override
-//                        public void onConfigCallback(final String str) throws RemoteException {
-//                            runOnUiThread(new Runnable() {
-//                                @Override
-//                                public void run() {
-//                                    Toast.makeText(MainActivity.this, ""+str, Toast.LENGTH_SHORT).show();
-//                                }
-//                            });
-//                        }
-//                    }, str);
-                    writeState = mBleInterface.sendUhfCommand(str);
+//                    if (!str.startsWith("7EFF")) str = BluetoothUtils.stringtoHex(str);
+                    writeState = mBleInterface.setScanConfig(new IScanConfigCallback.Stub() {
+                        @Override
+                        public void onConfigCallback(final String str) throws RemoteException {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    Toast.makeText(MainActivity.this, ""+str, Toast.LENGTH_SHORT).show();
+                                }
+                            });
+                        }
+                    }, str);
+//                    writeState = mBleInterface.sendUhfCommand(str);
                 }
             } catch (RemoteException e) {
                 e.printStackTrace();
             }
-            if (writeState.equals("failed")){
+            if (writeState == false){
                 Toast.makeText(MainActivity.this, "error", Toast.LENGTH_SHORT).show();
             }
             else {
@@ -307,11 +307,11 @@ public class MainActivity extends Activity {
     public void onHandleMessage(final String data, final int codeType, final String rawHexData) {
         Log.i(TAG, Thread.currentThread()+"  onReceiverdata: "+data+" codeType: "+codeType+" "+rawHexData);
         if (data != null){
-            final String text = "码制: 手表 [" + codeType + "(" + CodeType.getCodeTypeString(codeType) + ")]  工牌: [ " + CodeType.getCodeTypeFromCommon(codeType) + "(" + CodeType.getCodeTypeString(CodeType.getCodeTypeFromCommon(codeType))+")]\n"+ BluetoothUtils.fromHexString(data);
+            final String text = "码制: 手表 [" + codeType + "(" + CodeType.getCodeTypeString(codeType) + ")]  工牌: [ " + CodeType.getCodeTypeFromCommon(codeType) + "(" + CodeType.getCodeTypeString(CodeType.getCodeTypeFromCommon(codeType))+")]\n"+ data;
             handler.removeMessages(0);
             Message obtain = Message.obtain();
             obtain.what = 0;
-            obtain.obj = text;
+            obtain.obj = data;
             handler.sendMessageDelayed(obtain,200);
             runOnUiThread(new Runnable() {
                 @Override
