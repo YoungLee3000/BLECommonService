@@ -230,7 +230,7 @@ public class BluetoothUtils {
         if (packetSum == packetIndex && buffer.length() == currentPacketLen*2) {
             currentPacketLen = 0;
             if (buffer.toString().startsWith(RESPONE_UHF_PREFIX_HEX))
-                return subHexString(buffer.toString(),8,4);
+                return subHexString(buffer.toString(),8,0);
             return subHexString(buffer.toString(),12,2);////保留 倒数 4~2位(0D) , 判断是不是 扫描数据
         }
         return null;

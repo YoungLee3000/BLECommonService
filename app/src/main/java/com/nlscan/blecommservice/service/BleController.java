@@ -186,7 +186,7 @@ public class BleController {
      *                   STX   ATTR  LEN       AL_TYPE   Symbology_ID   Data
      *                   0x02  0x00  0x00000   0x3B      0x01
      */
-    public void sendScanResult(String hexString){
+    public String sendScanResult(String hexString){
         if (hexString != null && hexString.length() > 18){
             if (hexString.startsWith(BluetoothUtils.START_PACKET_HEX)){
                 int packetSum= Integer.parseInt(hexString.substring(4, 6), 16);//总包数
@@ -201,7 +201,7 @@ public class BleController {
 
                 if (packetSum == 1 && singlePacketLen == allPacketLen){
                     String dataFiled = BluetoothUtils.subHexString(hexString, 14, 4);
-                    if (dataFiled == null)return;
+                    if (dataFiled == null)return null;
                     if (dataFiled.startsWith("0200") && dataFiled.length() >= 16){//新的数据域 ， CRC校验
                         //STX(0x02)   ATTR(0x00)  LEN(0x0000)  AL_TYPE(0x3B)   Symbology_ID(0x00)     数据域                 LRC校验位
                         //02              00           000D       3B                  02             323930383831393034373830 C3
@@ -213,9 +213,10 @@ public class BleController {
                     }else if (dataFiled.startsWith("7E")){//兼容处理枪的数据 only for test
                         postData(BluetoothUtils.subHexString(hexString, 48,6), 0,hexString);//保留 倒数 8~6位(0D) , 判断是不是 扫描数据
                     }else if(dataFiled.startsWith(RESPONE_UHF_PREFIX_HEX)){ //处理UHF模块返回数据
-                        Log.d(TAG,"uhf data is 1 " + dataFiled);
-                        mUhfList.add(BluetoothUtils.subHexString(dataFiled, 8,0));
-                        postData(dataFiled , BluetoothUtils.currentPacketCodeType, hexString);
+//                        Log.d(TAG,"uhf data is 1 " + dataFiled);
+//                        mUhfList.add(BluetoothUtils.subHexString(dataFiled, 8,0));
+//                        postData(dataFiled , BluetoothUtils.currentPacketCodeType, hexString);
+                        return BluetoothUtils.subHexString(dataFiled, 8,0);
                     }
                     else {
                         handleConfigCallbackReturnHex(dataFiled);
@@ -228,18 +229,27 @@ public class BleController {
                     }
                     String data = BluetoothUtils.appendHexString(hexString, packetSum, packetIndex, singlePacketLen, allPacketLen);
                     if (data != null){
+//                        Log.d(TAG,"uhf data is  2 " + data);
                         postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
                         BluetoothUtils.currentPacketCodeType = 0;
-                        if (data.startsWith(RESPONE_UHF_PREFIX_HEX)){
-                            Log.d(TAG,"uhf data is  2 " + data);
-                            mUhfList.add(data);
+                        if (data.startsWith("FF")){
+//                            Log.d(TAG,"uhf data is  3 " + data);
+//                            mUhfList.add(data);
+                            return data;
                         }
 
                     }
                 }
             }
         }
+        return null;
     }
+
+
+
+
+
+
 
     String rawHexString = "";
 

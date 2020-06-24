@@ -68,6 +68,7 @@ public class BleService extends Service{
     private LinkedList<String> mUhfList = new LinkedList<>();
 
     private static final String FAILED_STR = "failed";
+    private static final int MAX_UHF_TAG = 10;
 
     /**
      * Lock used in synchronization purposes
@@ -219,7 +220,18 @@ public class BleService extends Service{
         @Override
         public String getUhfTagData() throws RemoteException {
             if (mUhfList.size() > 0) {
-                return  mUhfList.poll();
+
+                StringBuilder sb = new StringBuilder("");
+                int count = 0;
+                while (count < MAX_UHF_TAG){
+                    if (mUhfList.size() > 0) {
+                        sb.append(mUhfList.poll());
+                        sb.append(";");
+                    }
+                    count++;
+                }
+                String result = sb.toString();
+                return  result.substring(0,result.length()-1);
             }
             else {
                 return FAILED_STR;
@@ -665,13 +677,15 @@ public class BleService extends Service{
 //                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
                 Log.v(TAG, "onCharacteristicChanged  receivedata: hex: ["+ rawHexString +"]");
 
+                String uhfResult = "";
                 if (mBleController != null) {
                     if (mBleController.sendResponsePacket(gatt, rawHexString)){//应答
-                        mBleController.sendScanResult(rawHexString);//发送数据
+                         uhfResult =  mBleController.sendScanResult(rawHexString);//发送数据
                     }
                 }
 
-                String uhfResult = mBleController.getUhfResult();
+
+                Log.d(TAG,"uhf result is " + uhfResult);
                 if (uhfResult != null)
                     solveUhfData(uhfResult);
 
