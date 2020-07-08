@@ -220,6 +220,7 @@ public class BleController {
                     }
                     else {
                         handleConfigCallbackReturnHex(dataFiled);
+                        return dataFiled;
                     }
                 }else if (packetSum > 1){ // 分包处理
                     if (packetIndex == 0){

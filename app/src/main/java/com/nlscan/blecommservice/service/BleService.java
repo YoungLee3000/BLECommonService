@@ -189,7 +189,7 @@ public class BleService extends Service{
             String operateCode = command.length() >= 6 ? command.substring(4,6) : "";
 
 
-
+            //FF开头为UHF模块的命令，其它的则为蓝牙通讯的命令
             if (command.startsWith("FF")){
                 mBleController.writeBluetoothData(mBluetoothGatt,START_UHF_COMMAND_HEX +
                         String.format("%04X",command.length()/2)  +  command);
