@@ -219,23 +219,28 @@ public class BleService extends Service{
 
         @Override
         public String getUhfTagData() throws RemoteException {
-            if (mUhfList.size() > 0) {
+//            if (mUhfList.size() > 0) {
 
                 StringBuilder sb = new StringBuilder("");
                 int count = 0;
                 while (count < MAX_UHF_TAG){
-                    if (mUhfList.size() > 0) {
-                        sb.append(mUhfList.poll());
-                        sb.append(";");
-                    }
+//                    if (mUhfList.size() > 0) {
+                        String data = mUhfList.poll();
+                        if (data != null){
+                            Log.d(TAG,"list data is " + data);
+                            sb.append(data);
+                            sb.append(";");
+                        }
+
+//                    }
                     count++;
                 }
                 String result = sb.toString();
                 return  result.substring(0,result.length()-1);
-            }
-            else {
-                return FAILED_STR;
-            }
+//            }
+//            else {
+//                return "";
+//            }
         }
 
 
