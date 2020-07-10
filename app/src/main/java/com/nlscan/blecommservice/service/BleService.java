@@ -21,6 +21,7 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
+import com.nlscan.blecommservice.IUHFCallback;
 import com.nlscan.blecommservice.utils.BluetoothUtils;
 import com.nlscan.blecommservice.utils.Command;
 import com.nlscan.blecommservice.IBatteryChangeListener;
@@ -84,6 +85,8 @@ public class BleService extends Service{
     protected final static int STATE_CONNECTED = -2;
     protected final static int STATE_CONNECTED_AND_READY = -3; // indicates that services were discovered
     protected final static int STATE_CLOSED = -4;
+
+    private IUHFCallback mUhfCallback;
 
     private IBleInterface.Stub stub = new IBleInterface.Stub() {
 
@@ -254,6 +257,15 @@ public class BleService extends Service{
 //            return mCurrentACLAddress != null;
             return mIfConnect;
         }
+
+
+        @Override
+        public void setUhfCallback(IUHFCallback callback){
+            mUhfCallback = callback;
+        }
+
+
+
     };
     private Handler mHandler;
 
@@ -767,7 +779,12 @@ public class BleService extends Service{
         Log.d(TAG,"UHF received data [" + uhfData + "]");
 
         if (uhfData.substring(4,6).equals("29") || uhfData.substring(4,6).equals("AA")){
-            mUhfList.add(uhfData);//盘点数据
+//            mUhfList.add(uhfData);//盘点数据
+            try {
+                mUhfCallback.onReceiveUhf(uhfData);//回调盘点结果数据
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
         }
         else{
             mSetStack.add(uhfData);//设置结果
