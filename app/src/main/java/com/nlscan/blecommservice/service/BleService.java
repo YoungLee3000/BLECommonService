@@ -239,7 +239,7 @@ public class BleService extends Service{
                     count++;
                 }
                 String result = sb.toString();
-                return  result.substring(0,result.length()-1);
+                return  result.length() > 0 ? result.substring(0,result.length()-1) : "";
 //            }
 //            else {
 //                return "";
@@ -687,12 +687,16 @@ public class BleService extends Service{
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             super.onCharacteristicChanged(gatt, characteristic);
             if (UUIDManager.NOTIFY_UUID.toString().equals(characteristic.getUuid().toString())) {
+
+
+                long pre = System.currentTimeMillis();
                 String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
 //                Log.d(TAG,"receive origin :{" + rawHexString + "}");
 //                Log.d(TAG,"receive real str :{" +BluetoothUtils.hexStringToString(rawHexString) + "}" );
 //                rawHexString = rawHexString.substring(26,rawHexString.length()-5);
 //                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
-                Log.v(TAG, "onCharacteristicChanged  receivedata: hex: ["+ rawHexString +"]");
+                Log.v(TAG, "onCharacteristicChanged  receivedata: hex: ["+
+                        rawHexString.substring(0,8) +"]");
 
                 String uhfResult = "";
                 if (mBleController != null) {
@@ -702,11 +706,11 @@ public class BleService extends Service{
                 }
 
 
-                Log.d(TAG,"uhf result is " + uhfResult);
+                Log.d(TAG,"uhf result is " + uhfResult.substring(0,8));
                 if (uhfResult != null)
                     solveUhfData(uhfResult);
 
-
+                Log.d(TAG,"uhf solve cause " + (System.currentTimeMillis() - pre) + " ms" );
 
             }else {
                 Log.v(TAG, "onCharacteristicChanged "+ characteristic.getUuid());
@@ -776,15 +780,15 @@ public class BleService extends Service{
      */
     private void solveUhfData(String uhfData){
 
-        Log.d(TAG,"UHF received data [" + uhfData + "]");
+        Log.d(TAG,"UHF received data [" + uhfData.substring(0,6) + "]");
 
         if (uhfData.substring(4,6).equals("29") || uhfData.substring(4,6).equals("AA")){
-//            mUhfList.add(uhfData);//盘点数据
-            try {
-                mUhfCallback.onReceiveUhf(uhfData);//回调盘点结果数据
-            } catch (RemoteException e) {
-                e.printStackTrace();
-            }
+            mUhfList.add(uhfData);//盘点数据
+//            try {
+//                mUhfCallback.onReceiveUhf(uhfData);//回调盘点结果数据
+//            } catch (RemoteException e) {
+//                e.printStackTrace();
+//            }
         }
         else{
             mSetStack.add(uhfData);//设置结果

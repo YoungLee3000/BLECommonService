@@ -231,12 +231,16 @@ public class BleController {
                     String data = BluetoothUtils.appendHexString(hexString, packetSum, packetIndex, singlePacketLen, allPacketLen);
                     if (data != null){
 //                        Log.d(TAG,"uhf data is  2 " + data);
-                        postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
+
+
                         BluetoothUtils.currentPacketCodeType = 0;
                         if (data.startsWith("FF")){
 //                            Log.d(TAG,"uhf data is  3 " + data);
 //                            mUhfList.add(data);
                             return data;
+                        }
+                        else{
+                            postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
                         }
 
                     }
