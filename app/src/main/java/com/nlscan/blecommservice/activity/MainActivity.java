@@ -88,7 +88,7 @@ public class MainActivity extends Activity {
         btnObtainIvn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeUhfTest("FF032900BF004B22");
+                writeUhfTest("7E013030303040574C535150573B03");
             }
         });
 

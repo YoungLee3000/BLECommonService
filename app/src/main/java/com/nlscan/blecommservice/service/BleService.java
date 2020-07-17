@@ -70,6 +70,8 @@ public class BleService extends Service{
 
     private static final String FAILED_STR = "failed";
     private static final int MAX_UHF_TAG = 10;
+    private String mLastReceiveData = "";
+    private int mLastPackIndex =0;
 
     /**
      * Lock used in synchronization purposes
@@ -685,18 +687,27 @@ public class BleService extends Service{
          */
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            super.onCharacteristicChanged(gatt, characteristic);
+//            super.onCharacteristicChanged(gatt, characteristic);
             if (UUIDManager.NOTIFY_UUID.toString().equals(characteristic.getUuid().toString())) {
 
 
                 long pre = System.currentTimeMillis();
                 String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
+                int packIndex = Integer.parseInt(rawHexString.substring(6,8),16);
+                if (packIndex > 1 && mLastPackIndex == packIndex)
+                    return;
+                mLastPackIndex = packIndex;
+
+//                if (rawHexString != null && rawHexString.equals(mLastReceiveData))
+//                    return;
+//
+//                mLastReceiveData = rawHexString;
 //                Log.d(TAG,"receive origin :{" + rawHexString + "}");
 //                Log.d(TAG,"receive real str :{" +BluetoothUtils.hexStringToString(rawHexString) + "}" );
 //                rawHexString = rawHexString.substring(26,rawHexString.length()-5);
 //                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
                 Log.v(TAG, "onCharacteristicChanged  receivedata: hex: ["+
-                        rawHexString.substring(0,8) +"]");
+                        rawHexString +"]");
 
                 String uhfResult = "";
                 if (mBleController != null) {
