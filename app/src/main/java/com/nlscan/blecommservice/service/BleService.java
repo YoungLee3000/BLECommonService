@@ -687,7 +687,7 @@ public class BleService extends Service{
          */
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-//            super.onCharacteristicChanged(gatt, characteristic);
+
             if (UUIDManager.NOTIFY_UUID.toString().equals(characteristic.getUuid().toString())) {
 
 
@@ -698,14 +698,10 @@ public class BleService extends Service{
                     return;
                 mLastPackIndex = packIndex;
 
-//                if (rawHexString != null && rawHexString.equals(mLastReceiveData))
-//                    return;
-//
-//                mLastReceiveData = rawHexString;
-//                Log.d(TAG,"receive origin :{" + rawHexString + "}");
-//                Log.d(TAG,"receive real str :{" +BluetoothUtils.hexStringToString(rawHexString) + "}" );
-//                rawHexString = rawHexString.substring(26,rawHexString.length()-5);
-//                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
+                if (rawHexString != null && rawHexString.equals(mLastReceiveData))
+                    return;
+
+
                 Log.v(TAG, "onCharacteristicChanged  receivedata: hex: ["+
                         rawHexString +"]");
 
