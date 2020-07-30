@@ -210,6 +210,9 @@ public class BleController {
                         return dataFiled.substring(8);
 //                        return BluetoothUtils.subHexString(dataFiled, 8,0);
                     }
+                    else if (dataFiled.startsWith("0201")){
+                        return dataFiled;
+                    }
                     else if (dataFiled.startsWith("0200") && dataFiled.length() >= 16){//新的数据域 ， CRC校验
                         //STX(0x02)   ATTR(0x00)  LEN(0x0000)  AL_TYPE(0x3B)   Symbology_ID(0x00)     数据域                 LRC校验位
                         //02              00           000D       3B                  02             323930383831393034373830 C3
