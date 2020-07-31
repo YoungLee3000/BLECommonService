@@ -210,17 +210,16 @@ public class BleController {
                         return dataFiled.substring(8);
 //                        return BluetoothUtils.subHexString(dataFiled, 8,0);
                     }
-                    else if (dataFiled.startsWith("0201")){
-                        return dataFiled;
-                    }
                     else if (dataFiled.startsWith("0200") && dataFiled.length() >= 16){//新的数据域 ， CRC校验
                         //STX(0x02)   ATTR(0x00)  LEN(0x0000)  AL_TYPE(0x3B)   Symbology_ID(0x00)     数据域                 LRC校验位
                         //02              00           000D       3B                  02             323930383831393034373830 C3
                         postData(BluetoothUtils.subHexString(dataFiled, 12,2),//code result
                                 Integer.parseInt(dataFiled.substring(10,12),16),hexString);//code type
                     }else if (dataFiled.startsWith(BluetoothUtils.GET_CONFIG_CALLBACK_PACKET_START)
-                            && dataFiled.endsWith(BluetoothUtils.GET_CONFIG_CALLBACK_PACKET_END)){//处理配置回包  查询 都会带 063B03
+                            && dataFiled.endsWith(BluetoothUtils.GET_CONFIG_CALLBACK_PACKET_END)){
+                        //处理配置回包  查询 都会带 063B03
                         handleConfigCallback(BluetoothUtils.subHexString(dataFiled,12,6));
+                        return dataFiled;
                     }else if (dataFiled.startsWith("7E")){//兼容处理枪的数据 only for test
                         postData(BluetoothUtils.subHexString(hexString, 48,6), 0,hexString);//保留 倒数 8~6位(0D) , 判断是不是 扫描数据
                     }
