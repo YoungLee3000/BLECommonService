@@ -713,7 +713,7 @@ public class BleService extends Service{
                 }
 
 
-                Log.d(TAG,"uhf result is " + uhfResult.substring(0,8));
+                Log.d(TAG,"uhf result is " + ((uhfResult != null) ? uhfResult.substring(0,8) : "none"));
                 if (uhfResult != null)
                     solveUhfData(uhfResult);
 
