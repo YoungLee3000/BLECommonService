@@ -30,6 +30,7 @@ public class BluetoothUtils {
 
 
     private static final String RESPONE_UHF_PREFIX_HEX = "02FF";//uhf响应格式
+    private static final String RESPONE_IMU_PREFIX_HEX = "02FE";//imu响应格式
 
 
     private static StringBuffer buffer;
@@ -231,6 +232,8 @@ public class BluetoothUtils {
             currentPacketLen = 0;
             if (buffer.toString().startsWith(RESPONE_UHF_PREFIX_HEX))
                 return subHexString(buffer.toString(),8,0);
+            if (buffer.toString().startsWith(RESPONE_IMU_PREFIX_HEX))
+                return subHexString(buffer.toString(),0,0);
             return subHexString(buffer.toString(),12,2);////保留 倒数 4~2位(0D) , 判断是不是 扫描数据
         }
         return null;

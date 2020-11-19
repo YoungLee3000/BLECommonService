@@ -113,6 +113,7 @@ public class BleService extends Service{
         @Override
         public boolean setScanConfig(IScanConfigCallback callback, String str) throws RemoteException {
             if (!TextUtils.isEmpty(str) && str.startsWith(BluetoothUtils.UPDATE_HEAD)){
+                Log.d(TAG,"blecontroller is null? " + (mBleController == null));
                 Log.d(TAG, "setUpdateData:  "+ str.replaceAll(BluetoothUtils.UPDATE_HEAD,"")+" callback: "+(callback!=null));
             }else {
                 Log.d(TAG, "setScanConfig " + (callback != null) + " " + str);
@@ -374,6 +375,8 @@ public class BleService extends Service{
                                     disconnect();
                                 }
                             }
+
+                            Log.d(TAG,"ble bluetooth disconnect");
                             mIfConnect = false;
                         }
                     }
@@ -693,7 +696,7 @@ public class BleService extends Service{
 
                 long pre = System.currentTimeMillis();
                 String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
-                int packIndex = Integer.parseInt(rawHexString.substring(6,8),16);
+                int packIndex = rawHexString.length() > 8 ? Integer.parseInt(rawHexString.substring(6,8),16) : 1;
                 if (packIndex > 1 && mLastPackIndex == packIndex)
                     return;
                 mLastPackIndex = packIndex;
@@ -713,9 +716,13 @@ public class BleService extends Service{
                 }
 
 
-                Log.d(TAG,"uhf result is " + ((uhfResult != null) ? uhfResult.substring(0,8) : "none"));
+                Log.d(TAG,"uhf result is " + ((uhfResult != null  && uhfResult.length() >= 8) ? uhfResult.substring(0,8) : "none"));
                 if (uhfResult != null)
                     solveUhfData(uhfResult);
+
+                if (uhfResult.startsWith("02FE")){
+                    solveImuData(uhfResult);
+                }
 
                 Log.d(TAG,"uhf solve cause " + (System.currentTimeMillis() - pre) + " ms" );
 
@@ -787,6 +794,7 @@ public class BleService extends Service{
      */
     private void solveUhfData(String uhfData){
 
+        if (uhfData.length() < 6) return;
         Log.d(TAG,"UHF received data [" + uhfData.substring(0,6) + "]");
 
         if (uhfData.substring(4,6).equals("29") || uhfData.substring(4,6).equals("AA")){
@@ -801,6 +809,13 @@ public class BleService extends Service{
             mSetStack.add(uhfData);//设置结果
         }
 
+    }
+
+
+    //处理imu数据
+    private void solveImuData(String imuData){
+        if (imuData.length() <= 16) return;
+        mUhfList.add(imuData.substring(16));
     }
 
     /**

@@ -33,6 +33,7 @@ public class BleController {
 
     //uhf相关
     private static final String RESPONE_UHF_PREFIX_HEX = "02FF";//uhf响应格式
+    private static final String RESPONE_IMU_PREFIX_HEX = "02FE";//imu响应格式
     private LinkedList<String> mUhfList = new LinkedList<>();
 
     public String getUhfResult(){
@@ -210,6 +211,9 @@ public class BleController {
                         return dataFiled.substring(8);
 //                        return BluetoothUtils.subHexString(dataFiled, 8,0);
                     }
+                    else if (dataFiled.startsWith(RESPONE_IMU_PREFIX_HEX)){
+                        return dataFiled;
+                    }
                     else if (dataFiled.startsWith("0200") && dataFiled.length() >= 16){//新的数据域 ， CRC校验
                         //STX(0x02)   ATTR(0x00)  LEN(0x0000)  AL_TYPE(0x3B)   Symbology_ID(0x00)     数据域                 LRC校验位
                         //02              00           000D       3B                  02             323930383831393034373830 C3
@@ -242,6 +246,9 @@ public class BleController {
                         if (data.startsWith("FF")){
 //                            Log.d(TAG,"uhf data is  3 " + data);
 //                            mUhfList.add(data);
+                            return data;
+                        }
+                        else if (data.startsWith("02FE")){
                             return data;
                         }
                         else{
