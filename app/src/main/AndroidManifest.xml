@@ -2,8 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.nlscan.blecommservice"
     android:sharedUserId="android.uid.system"
-    android:versionCode="9"
-    android:versionName="1.0.9"
     >
 
     <uses-permission android:name="android.permission.BLUETOOTH" />
