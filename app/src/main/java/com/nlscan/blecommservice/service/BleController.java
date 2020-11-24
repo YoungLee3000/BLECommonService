@@ -251,6 +251,9 @@ public class BleController {
                         else if (data.startsWith("02FE")){
                             return data;
                         }
+                        else if ( "FF".equals(data.substring(6,8)) ){
+                            return data;
+                        }
                         else{
                             postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
                         }

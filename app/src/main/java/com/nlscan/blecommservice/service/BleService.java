@@ -797,6 +797,10 @@ public class BleService extends Service{
         if (uhfData.length() < 6) return;
         Log.d(TAG,"UHF received data [" + uhfData.substring(0,6) + "]");
 
+
+
+
+
         if (uhfData.substring(4,6).equals("29") || uhfData.substring(4,6).equals("AA")){
             mUhfList.add(uhfData);//盘点数据
 //            try {
@@ -804,6 +808,28 @@ public class BleService extends Service{
 //            } catch (RemoteException e) {
 //                e.printStackTrace();
 //            }
+        }
+        else if (uhfData.substring(6,8).equals("FF") && "AA".equals(uhfData.substring(10,12))){
+            try {
+
+
+                int relLen =   Integer.parseInt(uhfData.substring(0,4),16) * 2 ;
+                int readLen = 0;
+                int index = 4;
+
+                while (readLen < readLen){
+                    int subLen = Integer.parseInt(uhfData.substring(index,index+2),16) * 2;
+                    String ivnRel = uhfData.substring(index+2,index+2+ subLen);
+                    mUhfList.add(ivnRel);
+                    readLen += subLen;
+                    index += 2 + subLen;
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+
         }
         else{
             mSetStack.add(uhfData);//设置结果
