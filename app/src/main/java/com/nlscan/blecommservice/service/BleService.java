@@ -809,7 +809,8 @@ public class BleService extends Service{
 //                e.printStackTrace();
 //            }
         }
-        else if (uhfData.substring(6,8).equals("FF") && "AA".equals(uhfData.substring(10,12))){
+        else if (uhfData.substring(8,10).equals("FF") &&
+                ("AA".equals(uhfData.substring(12,14))   || "29".equals(uhfData.substring(12,14)) ) )   {
             try {
 
 
@@ -818,19 +819,21 @@ public class BleService extends Service{
                 int index = 4;
 
                 while (readLen < readLen){
-                    int subLen = Integer.parseInt(uhfData.substring(index,index+2),16) * 2;
-                    String ivnRel = uhfData.substring(index+2,index+2+ subLen);
+                    int subLen = Integer.parseInt(uhfData.substring(index,index+4),16) * 2;
+                    String ivnRel = uhfData.substring(index+4,index+4+ subLen);
                     mUhfList.add(ivnRel);
                     readLen += subLen;
-                    index += 2 + subLen;
+                    index += 4 + subLen;
                 }
 
             } catch (Exception e) {
                 e.printStackTrace();
             }
+            mSetStack.add(uhfData);
 
 
         }
+
         else{
             mSetStack.add(uhfData);//设置结果
         }
