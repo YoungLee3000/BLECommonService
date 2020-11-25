@@ -208,7 +208,7 @@ public class BleController {
 //                        Log.d(TAG,"uhf data is 1 " + dataFiled);
 //                        mUhfList.add(BluetoothUtils.subHexString(dataFiled, 8,0));
 //                        postData(dataFiled , BluetoothUtils.currentPacketCodeType, hexString);
-                        return dataFiled.substring(8);
+                        return dataFiled.substring(4);
 //                        return BluetoothUtils.subHexString(dataFiled, 8,0);
                     }
                     else if (dataFiled.startsWith(RESPONE_IMU_PREFIX_HEX)){
@@ -251,7 +251,7 @@ public class BleController {
                         else if (data.startsWith("02FE")){
                             return data;
                         }
-                        else if ( "FF".equals(data.substring(6,8)) ){
+                        else if ( "FF".equals(data.substring(8,10)) ){
                             return data;
                         }
                         else{

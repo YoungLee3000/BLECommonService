@@ -801,7 +801,7 @@ public class BleService extends Service{
 
 
 
-        if (uhfData.substring(4,6).equals("29") || uhfData.substring(4,6).equals("AA")){
+        if (uhfData.substring(8,10).equals("29") || uhfData.substring(8,10).equals("AA")){
             mUhfList.add(uhfData);//盘点数据
 //            try {
 //                mUhfCallback.onReceiveUhf(uhfData);//回调盘点结果数据
@@ -818,9 +818,10 @@ public class BleService extends Service{
                 int readLen = 0;
                 int index = 4;
 
-                while (readLen < readLen){
+                while (readLen < relLen){
                     int subLen = Integer.parseInt(uhfData.substring(index,index+4),16) * 2;
                     String ivnRel = uhfData.substring(index+4,index+4+ subLen);
+                    Log.d(TAG,"the sub string is " + ivnRel);
                     mUhfList.add(ivnRel);
                     readLen += subLen;
                     index += 4 + subLen;
@@ -829,13 +830,13 @@ public class BleService extends Service{
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            mSetStack.add(uhfData);
+            mSetStack.add(uhfData.substring(4));
 
 
         }
 
         else{
-            mSetStack.add(uhfData);//设置结果
+            mSetStack.add(uhfData.substring(4));//设置结果
         }
 
     }
