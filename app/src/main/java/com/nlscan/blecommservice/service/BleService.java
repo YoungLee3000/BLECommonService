@@ -802,7 +802,7 @@ public class BleService extends Service{
 
 
         if (uhfData.substring(8,10).equals("29") || uhfData.substring(8,10).equals("AA")){
-            mUhfList.add(uhfData);//盘点数据
+            mUhfList.add(uhfData.substring(4));//盘点数据
 //            try {
 //                mUhfCallback.onReceiveUhf(uhfData);//回调盘点结果数据
 //            } catch (RemoteException e) {
@@ -830,13 +830,19 @@ public class BleService extends Service{
             } catch (Exception e) {
                 e.printStackTrace();
             }
-            mSetStack.add(uhfData.substring(4));
+            mSetStack.add(uhfData);
 
 
         }
 
         else{
-            mSetStack.add(uhfData.substring(4));//设置结果
+            if (uhfData.substring(4,6).equals("FF")){
+                mSetStack.add(uhfData.substring(4));//设置结果
+            }
+            else {
+                mSetStack.add(uhfData);
+            }
+
         }
 
     }
