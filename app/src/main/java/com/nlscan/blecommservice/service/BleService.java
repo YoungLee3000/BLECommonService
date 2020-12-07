@@ -55,6 +55,7 @@ public class BleService extends Service{
     private final int MSG_WHAT_BATTERY       = 0x00; // get battery level
     private final int MSG_WHAT_CHARGE_STATE  = 0x10; // get charge state
     private final int MSG_WHAT_RSSI          = 0x100; // get rssi
+    private final int MSG_WHAT_ENABLE_BT          = 0x200; // enable bt
 
 
     //uhf 数据相关
@@ -311,6 +312,11 @@ public class BleService extends Service{
                         //get charge state
                         mBleController.getChargeState(mBluetoothGatt);
                     }
+
+                }else if (msg.what == MSG_WHAT_ENABLE_BT) {
+                    if (mBluetoothAdapter != null) {
+                        mBluetoothAdapter.enable();
+                    }
                 }else if (msg.what == MSG_WHAT_RSSI){
                     if (ENABLE_TEST) {
                         Log.i(TAG, "handleMessage read rssi " + mBluetoothGatt);
@@ -444,7 +450,7 @@ public class BleService extends Service{
                         }
                         //快速开关蓝牙
                         if (state == BluetoothAdapter.STATE_ON && mConnectionState == STATE_CLOSED){
-                            findBleDeviceToConnect(device.getAddress());
+                            findBleDeviceToConnect(null);
                         }
                     //}
                 }
@@ -494,51 +500,82 @@ public class BleService extends Service{
         Log.i(TAG, "findBleDeviceToConnect:  address:" + address + " adapter: "+(mBluetoothAdapter!=null)+" enable: "+(mBluetoothAdapter!=null ?mBluetoothAdapter.isEnabled():false));
         mCurrentACLAddress = null;
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
-            if (address != null){
+            if (address != null) {
                 foundDevice = false;
             }
             Set<BluetoothDevice> connectedDevicesList = mBluetoothAdapter.getBondedDevices();
-            Log.i(TAG, "findBleDeviceToConnect: connectedDevicesList " + connectedDevicesList.size());
-            for (BluetoothDevice device : connectedDevicesList) {
-                boolean connectState = BluetoothUtils.getConnectState(device);
-                Log.i(TAG, "getConnectedDevice: " + device.getAddress() + " " + device.getName() + "  state： " + connectState+" address: "+address);
-                if (connectState){
-                    if (BluetoothUtils.isBLEDevice(device.getAddress(),BleService.this)
-                            && (address == null || (address !=null && device.getAddress().equals(address)))) { //PERIPHERAL_KEYBOARD 0x540 外围键盘设备
-                        Log.i(TAG, "find connected BLE device: " + device.getAddress()+" Now to Connect "+mBluetoothGatt);
-                        disconnect();//disconnect first
+            if (connectedDevicesList == null) return;
+            Log.i(TAG, "findBleDeviceToConnect: BondedDevicesList " + connectedDevicesList.size());
+            for (final BluetoothDevice device : connectedDevicesList) {
+                if (BluetoothUtils.isBLEDevice(device.getAddress(), BleService.this)
+                        && (address == null || (address != null && device.getAddress().equals(address)))) { //PERIPHERAL_KEYBOARD 0x540 外围键盘设备
+                    boolean connectState = BluetoothUtils.getConnectState(device);
+                    Log.i(TAG, "getConnectedDevice: " + device.getAddress() + " " + device.getName() + "  state： " + connectState + " address: " + address);
+                    if (connectState) {
+                        Log.i(TAG, "find connected BLE device: " + device.getAddress() + " Now to Connect " + mBluetoothGatt);
+                        disconnect();//disconnect first  modified 2020623
+                        //mHandler.postDelayed(new Runnable() {
+                        //    @Override
+                        //   public void run() {
+                        Log.i(TAG, "start connect device");
                         boolean stat = connectDevice(device.getAddress());
-                        if (stat && mBluetoothGatt != null){
-                            if (mBleController != null && mBleController.isClientCompatible(mBluetoothGatt)){
+                        if (stat && mBluetoothGatt != null) {
+                            if (mBleController != null && mBleController.isClientCompatible(mBluetoothGatt)) {
                                 foundDevice = true;
+                                Log.i(TAG, "Connected to LE succeed  [" + device.getAddress() + " " + device.getName() + "]");
                                 mIfConnect = true;
-                                Log.i(TAG, "Connected to LE succeed  ["+device.getAddress() + " " + device.getName()+"]");
-                                //get battery value
-                                if (mHandler != null){
-                                    if (!ENABLE_TEST) {//now connected , bluetooth will send battery info , 20200430
-                                        //mHandler.removeMessages(MSG_WHAT_BATTERY);
-                                        //mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY, 1000);
-                                    }
-                                    mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
-                                    mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
-                                }
-                                if (ENABLE_TEST){
-                                    //get rssi
-                                    if (mHandler != null){
-                                        mHandler.removeMessages(MSG_WHAT_RSSI);
-                                        mHandler.sendEmptyMessageDelayed(MSG_WHAT_RSSI, 1000);
-                                    }
-                                }
-                            }else {
+                                //connect succeed , get battery info
+                                getBatteryInfo();
+                            } else {
                                 // not scan device , to disconnect.
                                 disconnect();
                             }
+                        } else if (!stat && mBluetoothGatt == null) {
+                            Log.i(TAG, "connectGatt fail , reOpen bt   [" + device.getAddress() + " " + device.getName() + "]");
+                            //findBleDeviceToConnect(address);
+                            //2020628 , add for DeadObjectException , reOpen BT
+                            mBluetoothAdapter.disable();//disable bt first .
+                            mHandler.removeMessages(MSG_WHAT_ENABLE_BT);
+                            mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_BT, 50);//enable.
                         }
+                        //Log.i(TAG, "end connect device");
+                        //}
+                        //},200);
                     }
+                    //Log.i(TAG, "return");
+                    return;
                 }
             }
             if (address != null && !foundDevice){
                 mCurrentACLAddress = address;
+            }
+        }
+
+    }
+
+
+
+    /**
+     * 连接成功，获取工牌信息
+     */
+    private void getBatteryInfo(){
+        //send connected info.2020611
+        BluetoothUtils.sendBatteryInfo(this,-1);
+
+        //get battery value
+        if (mHandler != null){
+            if (!ENABLE_TEST) {//now connected , bluetooth will send battery info , 20200430
+                mHandler.removeMessages(MSG_WHAT_BATTERY);
+                mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY, 1200);
+            }
+            mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
+            mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
+        }
+        if (ENABLE_TEST){
+            //get rssi
+            if (mHandler != null){
+                mHandler.removeMessages(MSG_WHAT_RSSI);
+                mHandler.sendEmptyMessageDelayed(MSG_WHAT_RSSI, 1000);
             }
         }
     }
