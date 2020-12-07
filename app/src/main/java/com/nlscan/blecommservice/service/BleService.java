@@ -364,7 +364,7 @@ public class BleService extends Service{
                             if (device.getBondState() == BluetoothDevice.BOND_BONDED &&  isBLEDevice(device.getAddress())) {
                                 //findBleDeviceToConnect(device.getAddress());
                             }*/
-                            mIfConnect = true;
+//                            mIfConnect = true;
                         }else if (newConnState == BluetoothAdapter.STATE_DISCONNECTED) {
                             Log.i(TAG, "ACTION_CONNECTION_STATE_CHANGED  STATE_DISCONNECTED: " + device.getName() +
                                     " " + device.getAddress() + " boundState: " + device.getBondState());
@@ -377,7 +377,7 @@ public class BleService extends Service{
                             }
 
                             Log.d(TAG,"ble bluetooth disconnect");
-                            mIfConnect = false;
+//                            mIfConnect = false;
                         }
                     }
 
@@ -490,7 +490,7 @@ public class BleService extends Service{
      */
     boolean foundDevice = false;
     public void findBleDeviceToConnect(String address){
-        mIfConnect = true;
+
         Log.i(TAG, "findBleDeviceToConnect:  address:" + address + " adapter: "+(mBluetoothAdapter!=null)+" enable: "+(mBluetoothAdapter!=null ?mBluetoothAdapter.isEnabled():false));
         mCurrentACLAddress = null;
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
@@ -511,6 +511,7 @@ public class BleService extends Service{
                         if (stat && mBluetoothGatt != null){
                             if (mBleController != null && mBleController.isClientCompatible(mBluetoothGatt)){
                                 foundDevice = true;
+                                mIfConnect = true;
                                 Log.i(TAG, "Connected to LE succeed  ["+device.getAddress() + " " + device.getName()+"]");
                                 //get battery value
                                 if (mHandler != null){
@@ -887,6 +888,7 @@ public class BleService extends Service{
      * released properly.
      */
     public void disconnect() {
+        mIfConnect = false;
         Log.i(TAG,"disconnect ble , release");
         if (mHandler != null){
             mHandler.removeMessages(MSG_WHAT_RSSI);
