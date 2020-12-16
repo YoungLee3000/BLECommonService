@@ -217,6 +217,7 @@ public class BleController {
                     else if (dataFiled.startsWith("0200") && dataFiled.length() >= 16){//新的数据域 ， CRC校验
                         //STX(0x02)   ATTR(0x00)  LEN(0x0000)  AL_TYPE(0x3B)   Symbology_ID(0x00)     数据域                 LRC校验位
                         //02              00           000D       3B                  02             323930383831393034373830 C3
+//                        Log.d(TAG,"post data 1");
                         postData(BluetoothUtils.subHexString(dataFiled, 12,2),//code result
                                 Integer.parseInt(dataFiled.substring(10,12),16),hexString);//code type
                     }else if (dataFiled.startsWith(BluetoothUtils.GET_CONFIG_CALLBACK_PACKET_START)
@@ -225,6 +226,7 @@ public class BleController {
                         handleConfigCallback(BluetoothUtils.subHexString(dataFiled,12,6));
                         return dataFiled;
                     }else if (dataFiled.startsWith("7E")){//兼容处理枪的数据 only for test
+//                        Log.d(TAG,"post data 2");
                         postData(BluetoothUtils.subHexString(hexString, 48,6), 0,hexString);//保留 倒数 8~6位(0D) , 判断是不是 扫描数据
                     }
                     else {
@@ -243,18 +245,19 @@ public class BleController {
 
 
                         BluetoothUtils.currentPacketCodeType = 0;
-                        if (data.startsWith("FF")){
+                        if (data.startsWith(RESPONE_UHF_PREFIX_HEX) ){
 //                            Log.d(TAG,"uhf data is  3 " + data);
 //                            mUhfList.add(data);
-                            return data;
+                            return data.substring(4);
                         }
-                        else if (data.startsWith("02FE")){
+                        else if (data.startsWith(RESPONE_IMU_PREFIX_HEX)){
                             return data;
                         }
                         else if ( "FF".equals(data.substring(8,10)) ){
                             return data;
                         }
                         else{
+//                            Log.d(TAG,"post data 3");
                             postData(data , BluetoothUtils.currentPacketCodeType, rawHexString);
                         }
 

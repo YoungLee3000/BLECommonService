@@ -68,9 +68,11 @@ public class BleService extends Service{
     private Stack<String> mSetStack = new Stack<>();
 
     private LinkedList<String> mUhfList = new LinkedList<>();
+    private LinkedList<String> mImuList = new LinkedList<>();
 
     private static final String FAILED_STR = "failed";
-    private static final int MAX_UHF_TAG = 10;
+    private static final int MAX_UHF_TAG = 15;
+    private static final int MAX_IMU_TAG = 10;
     private String mLastReceiveData = "";
     private int mLastPackIndex =0;
 
@@ -230,18 +232,39 @@ public class BleService extends Service{
 
                 StringBuilder sb = new StringBuilder("");
                 int count = 0;
-                while (count < MAX_UHF_TAG){
+
+//            Log.d(TAG,"get tag ble change 4 ");
+
+                if (mUhfList.size() > 0){
+                    while (count < MAX_UHF_TAG){
 //                    if (mUhfList.size() > 0) {
                         String data = mUhfList.poll();
                         if (data != null){
-                            Log.d(TAG,"list data is " + data);
+//                            Log.d(TAG,"list data is " + data);
                             sb.append(data);
                             sb.append(";");
                         }
 
 //                    }
-                    count++;
+                        count++;
+                    }
                 }
+                else{
+                    while (count < MAX_IMU_TAG){
+//                    if (mUhfList.size() > 0) {
+                        String data = mImuList.poll();
+                        if (data != null){
+//                            Log.d(TAG,"list data is " + data);
+                            sb.append(data);
+                            sb.append(";");
+                        }
+
+//                    }
+                        count++;
+                    }
+                }
+
+
                 String result = sb.toString();
                 return  result.length() > 0 ? result.substring(0,result.length()-1) : "";
 //            }
@@ -254,6 +277,7 @@ public class BleService extends Service{
         @Override
         public void clearUhfTagData() throws RemoteException {
             mUhfList.clear();
+            mImuList.clear();
         }
 
         @Override
@@ -755,11 +779,12 @@ public class BleService extends Service{
 
 
                 Log.d(TAG,"uhf result is " + ((uhfResult != null  && uhfResult.length() >= 8) ? uhfResult.substring(0,8) : "none"));
-                if (uhfResult != null)
-                    solveUhfData(uhfResult);
 
-                if (uhfResult.startsWith("02FE")){
-                    solveImuData(uhfResult);
+                if (uhfResult != null ){
+                    if ( uhfResult.startsWith("02FE"))
+                        solveImuData(uhfResult);
+                    else
+                        solveUhfData(uhfResult);
                 }
 
                 Log.d(TAG,"uhf solve cause " + (System.currentTimeMillis() - pre) + " ms" );
@@ -889,7 +914,7 @@ public class BleService extends Service{
     //处理imu数据
     private void solveImuData(String imuData){
         if (imuData.length() <= 16) return;
-        mUhfList.add(imuData.substring(16));
+        mImuList.add(imuData.substring(16));
     }
 
     /**
