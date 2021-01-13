@@ -33,6 +33,8 @@ import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MainActivity extends Activity {
 
@@ -102,7 +104,41 @@ public class MainActivity extends Activity {
         btnSetZone.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeUhfTest("FF0197064BBB");
+
+
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        try {
+                            mBleInterface.setScanConfig(new IScanConfigCallback.Stub() {
+                                @Override
+                                public void onConfigCallback(final String str) throws RemoteException {
+
+                                }}, "@GRBENA0");
+                        } catch (RemoteException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                },100);
+
+
+
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+
+                        Log.d(TAG, "interface service init");
+                        try {
+                            mBleInterface.setScanConfig(new IScanConfigCallback.Stub() {
+                                @Override
+                                public void onConfigCallback(final String str) throws RemoteException {
+
+                                }}, "@WLSCLP");
+                        } catch (RemoteException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                },1500);
             }
         });
 

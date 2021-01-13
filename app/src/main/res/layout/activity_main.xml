@@ -93,7 +93,7 @@
                 android:layout_marginLeft="5dp"
                 android:layout_marginRight="5dp"
                 android:layout_weight="1"
-                android:text="设区域"/>
+                android:text="恢复出厂"/>
 
 
         </LinearLayout>
