@@ -30,6 +30,7 @@ import com.nlscan.blecommservice.IBleScanCallback;
 import com.nlscan.blecommservice.IScanConfigCallback;
 import com.nlscan.blecommservice.utils.UUIDManager;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -531,6 +532,7 @@ public class BleService extends Service{
             if (connectedDevicesList == null) return;
             Log.i(TAG, "findBleDeviceToConnect: BondedDevicesList " + connectedDevicesList.size());
             for (final BluetoothDevice device : connectedDevicesList) {
+
                 if (BluetoothUtils.isBLEDevice(device.getAddress(), BleService.this)
                         && (address == null || (address != null && device.getAddress().equals(address)))) { //PERIPHERAL_KEYBOARD 0x540 外围键盘设备
                     boolean connectState = BluetoothUtils.getConnectState(device);
@@ -550,6 +552,7 @@ public class BleService extends Service{
                                 mIfConnect = true;
                                 //connect succeed , get battery info
                                 getBatteryInfo();
+                                removeAll(address);
                             } else {
                                 // not scan device , to disconnect.
                                 disconnect();
@@ -577,6 +580,25 @@ public class BleService extends Service{
 
     }
 
+
+    //移除所有已经绑定的设备
+    private void removeAll(String address){
+        Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
+        for(BluetoothDevice device : bondedDevices) {
+            if (device!=null && device.getAddress().equals(address)) continue;
+            try {
+                Class btDeviceCls = BluetoothDevice.class;
+                Method removeBond = btDeviceCls.getMethod("removeBond");
+                if (device !=null && device.getName().startsWith("SR")){
+                    removeBond.setAccessible(true);
+                    removeBond.invoke(device);
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
 
     /**
