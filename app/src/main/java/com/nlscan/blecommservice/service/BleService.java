@@ -349,7 +349,7 @@ public class BleService extends Service{
                         if (mBluetoothGatt != null) {
                             boolean result = mBluetoothGatt.readRemoteRssi();
                             if (result) {
-                                sendEmptyMessageDelayed(MSG_WHAT_RSSI, 1400);
+                                sendEmptyMessageDelayed(MSG_WHAT_RSSI, 3000);
 
                                 String packet = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("@WLSRSS"));
                                 Log.i(TAG, "handleMessage read bg packet:  " + packet);

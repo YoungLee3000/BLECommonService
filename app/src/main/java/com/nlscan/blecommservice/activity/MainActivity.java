@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -20,6 +21,9 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import com.nlscan.blecommservice.utils.Command;
 import com.nlscan.blecommservice.IBatteryChangeListener;
 import com.nlscan.blecommservice.IBleInterface;
@@ -32,17 +36,26 @@ import com.nlscan.blecommservice.utils.CodeType;
 import java.io.File;
 import java.io.FileWriter;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class MainActivity extends Activity {
 
     private static final String TAG = "BleService.Client";
-    private TextView mTextView,mScanResultText,mScanRawResultText,mShowBattery,mShowRssi,mShowBGRssi;
+    private TextView mTextView,mScanResultText,mScanRawResultText,mShowBattery,mShowRssi,mShowBGRssi,
+                    tvCount;
 
-    private Button btnStartIvn,btnObtainIvn,btnSetPower,btnSetZone;
+    private Button btnPowerUp,btnPowerDown,btnInv,btnReset,btnClear;
+
+    private RecyclerView rvUhf;
+    private List<String> dataList = new ArrayList<>();
+    MyRVAdapter myRVAdapter;
+
     private Handler handler;
+    private Handler myHandler;
     private BleServiceConnection mConnection = null;
     private BroadcastReceiver mBroadcastReceiver;
 
@@ -64,6 +77,20 @@ public class MainActivity extends Activity {
             public void handleMessage(Message msg) {
                 super.handleMessage(msg);
                 mScanResultText.setText(((String) msg.obj));
+                switch (msg.what){
+                    case 1:
+                        Toast.makeText(MainActivity.this,"回复出厂成功",Toast.LENGTH_SHORT).show();
+                        mScanResultText.setText("回复出厂成功");
+                        mScanResultText.setTextColor(Color.GREEN);
+                        break;
+                    case 2:
+                        Toast.makeText(MainActivity.this,"回复出厂失败",Toast.LENGTH_SHORT).show();
+                        mScanResultText.setText("回复出厂失败");
+                        mScanResultText.setTextColor(Color.RED);
+                        break;
+                    default:
+                        break;
+                }
             }
         };
         mTextView = findViewById(R.id.device_info);
@@ -72,36 +99,102 @@ public class MainActivity extends Activity {
         mShowBGRssi =  findViewById(R.id.show_rssi_bg);
         mScanRawResultText =  findViewById(R.id.scan_result_raw);
         mShowBattery = findViewById(R.id.show_battery);
+        tvCount = findViewById(R.id.tv_count);
 
-        btnStartIvn = findViewById(R.id.btn_start_ivn);
-        btnObtainIvn = findViewById(R.id.btn_obtain_ivn);
-        btnSetPower = findViewById(R.id.btn_set_power);
-        btnSetZone = findViewById(R.id.btn_set_zone);
+        btnPowerUp = findViewById(R.id.btn_power_on);
+        btnPowerDown = findViewById(R.id.btn_power_down);
+        btnInv = findViewById(R.id.btn_ivn);
+        btnReset = findViewById(R.id.btn_reset);
+        btnClear = findViewById(R.id.btn_clear);
 
 
-        btnStartIvn.setOnClickListener(new View.OnClickListener() {
+        rvUhf = findViewById(R.id.rv_uhf);
+        myRVAdapter = new MyRVAdapter(this,dataList);
+        rvUhf.setAdapter(myRVAdapter);
+        LinearLayoutManager linearLayoutManager = new LinearLayoutManager(this,LinearLayoutManager.VERTICAL,false);
+        rvUhf.setLayoutManager(linearLayoutManager);
+
+        btnClear.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeUhfTest("FF052200000000C80877");
+                dataList.clear();
+                myRVAdapter.notifyDataSetChanged();
+                tvCount.setText("");
+                mScanResultText.setText("");
+            }
+        });
+
+        btnPowerUp.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+
+                String sendCommand = "FF00031D0C";
+                String resultCode = "failed";
+
+                try {
+                    resultCode = mBleInterface.sendUhfCommand(sendCommand);
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+
+                if ("failed".equals(resultCode) ){
+                    Toast.makeText(MainActivity.this,"上电失败",Toast.LENGTH_SHORT).show();
+                    mScanResultText.setText("上电失败");
+                    mScanResultText.setTextColor(Color.RED);
+                    return;
+                }
+
+
+                if (!resultCode.substring(6,10).equals("0000")){
+                    Toast.makeText(MainActivity.this,"上电失败",Toast.LENGTH_SHORT).show();
+                    mScanResultText.setText("上电失败");
+                    mScanResultText.setTextColor(Color.RED);
+                }
+                else {
+                    try {
+                        mBleInterface.sendUhfCommand("7EFE001930320000000AFF05220000000032088D08FF032900BF004B22");
+
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+                    Toast.makeText(MainActivity.this,"上电成功",Toast.LENGTH_SHORT).show();
+                    mScanResultText.setText("上电成功");
+                    mScanResultText.setTextColor(Color.GREEN);
+                }
+
+
+
+
             }
         });
 
 
-        btnObtainIvn.setOnClickListener(new View.OnClickListener() {
+        btnPowerDown.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeUhfTest("7E013030303040574C535150573B03");
+                try {
+                    mBleInterface.sendUhfCommand("7EFE00023130");
+                    mBleInterface.sendUhfCommand("FF00FC0130");
+
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+                mScanResultText.setText("下电成功");
+                mScanResultText.setTextColor(Color.GREEN);
+                Toast.makeText(MainActivity.this,"下电成功",Toast.LENGTH_SHORT).show();
             }
         });
 
-        btnSetPower.setOnClickListener(new View.OnClickListener() {
+        btnInv.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                writeUhfTest("FF0691030103E80BB8BE25");
+//                writeUhfTest("7EFE001930320000000AFF05220000000032088D08FF032900BF004B22");
+                writeUhfTest("7EFE00023131");
             }
         });
 
-        btnSetZone.setOnClickListener(new View.OnClickListener() {
+        btnReset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
 
@@ -114,7 +207,7 @@ public class MainActivity extends Activity {
                                 @Override
                                 public void onConfigCallback(final String str) throws RemoteException {
 
-                                }}, "@GRBENA0");
+                                        }}, "@FACDEF");
                         } catch (RemoteException e) {
                             e.printStackTrace();
                         }
@@ -134,9 +227,12 @@ public class MainActivity extends Activity {
                                 public void onConfigCallback(final String str) throws RemoteException {
 
                                 }}, "@WLSCLP");
+                            handler.sendEmptyMessage(1);
                         } catch (RemoteException e) {
+                            handler.sendEmptyMessage(2);
                             e.printStackTrace();
                         }
+
                     }
                 },1500);
             }
@@ -148,6 +244,40 @@ public class MainActivity extends Activity {
         IntentFilter filter = new IntentFilter("nlscan.acation.getrssi");
         filter.addAction("nlscan.acation.getbgrssi");
         registerReceiver(mBroadcastReceiver,filter);
+
+
+        myHandler = new Handler();
+        myHandler.post(new Runnable() {
+            @Override
+            public void run()
+            {
+
+                if (mBleInterface!=null){
+                    String uhfRel = null;
+                    try {
+                        uhfRel = mBleInterface.getUhfTagData();
+                        if (uhfRel!=null && !"".equals(uhfRel)){
+                            String[] strList = uhfRel.split(";");
+                            for (String str : strList){
+                                dataList.add(str);
+                                myRVAdapter.notifyDataSetChanged();
+                                rvUhf.scrollToPosition(dataList.size()-1);
+                            }
+                            tvCount.setText(""+dataList.size());
+                        }
+
+                    } catch (RemoteException e) {
+                        e.printStackTrace();
+                    }
+
+                }
+
+
+                myHandler.postDelayed(this, 100);
+            }
+        });
+
+
     }
 
 
@@ -159,10 +289,20 @@ public class MainActivity extends Activity {
         } catch (RemoteException e) {
             e.printStackTrace();
         }
-        if (writeState.equals("failed"))
-            Toast.makeText(MainActivity.this, "error", Toast.LENGTH_SHORT).show();
-//        else
-//            mScanResultText.setText(writeState);
+        if (writeState.equals("failed")){
+            mScanResultText.setText("执行失败");
+            mScanResultText.setTextColor(Color.RED);
+            Toast.makeText(MainActivity.this, "执行失败", Toast.LENGTH_SHORT).show();
+        }
+
+
+        else{
+            mScanResultText.setText("执行成功");
+            mScanResultText.setTextColor(Color.GREEN);
+            Toast.makeText(MainActivity.this, "执行成功", Toast.LENGTH_SHORT).show();
+            mScanResultText.setText(writeState);
+        }
+
     }
 
     class Broadcast extends BroadcastReceiver{
@@ -302,9 +442,8 @@ public class MainActivity extends Activity {
     public void onTriggerClick(View view) {
         try {
 
-            Intent intent = new Intent("nlscan.intent.action.startAutoConnect");
-            intent.putExtra("EnterScan",true);
-            startActivity(intent);
+
+            startActivity(new Intent(MainActivity.this,SearchActivity.class));
         }catch (Exception e){};
     }
 

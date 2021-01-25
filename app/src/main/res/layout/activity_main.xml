@@ -55,7 +55,7 @@
             android:layout_marginTop="50dp">
 
             <Button
-                android:id="@+id/btn_start_ivn"
+                android:id="@+id/btn_power_on"
                 android:background="@color/colorPrimary"
                 android:textAlignment="center"
                 android:layout_width="0dp"
@@ -63,9 +63,9 @@
                 android:layout_weight="1"
                 android:layout_marginLeft="5dp"
                 android:layout_marginRight="5dp"
-                android:text="开启盘点"/>
+                android:text="上电"/>
             <Button
-                android:id="@+id/btn_obtain_ivn"
+                android:id="@+id/btn_power_down"
                 android:background="@color/colorPrimary"
                 android:textAlignment="center"
                 android:layout_width="0dp"
@@ -73,9 +73,9 @@
                 android:layout_weight="1"
                 android:layout_marginLeft="5dp"
                 android:layout_marginRight="5dp"
-                android:text="盘点数据"/>
+                android:text="下电"/>
             <Button
-                android:id="@+id/btn_set_power"
+                android:id="@+id/btn_ivn"
                 android:background="@color/colorPrimary"
                 android:textAlignment="center"
                 android:layout_width="0dp"
@@ -83,9 +83,9 @@
                 android:layout_marginLeft="5dp"
                 android:layout_marginRight="5dp"
                 android:layout_weight="1"
-                android:text="设功率"/>
+                android:text="盘点"/>
             <Button
-                android:id="@+id/btn_set_zone"
+                android:id="@+id/btn_reset"
                 android:background="@color/colorPrimary"
                 android:textAlignment="center"
                 android:layout_width="0dp"
@@ -99,13 +99,15 @@
         </LinearLayout>
 
         <TextView
+            android:layout_marginTop="10dp"
+            android:background="@color/background_tab_pressed"
             android:text="SCAN DATA"
             android:gravity="center"
             android:layout_width="match_parent"
             android:layout_height="40dp" />
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="400dp">
+            android:layout_height="330dp">
         <LinearLayout
             android:orientation="vertical"
             android:layout_width="match_parent"
@@ -118,16 +120,55 @@
                 android:textStyle="bold"
                 android:gravity="center"
                 android:text=""
-                android:minHeight="400dp"
+                android:minHeight="120dp"
                 android:lineSpacingExtra="10dp"
                 android:id="@+id/scan_result"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:text="数据包："
+                    android:layout_height="wrap_content"/>
+
+                <TextView
+                    android:id="@+id/tv_count"
+                    android:layout_width="0dp"
+                    android:layout_weight="3"
+                    android:text=""
+                    android:layout_height="wrap_content"/>
+
+                <Button
+                    android:id="@+id/btn_clear"
+                    android:text="清空数据"
+                    android:textSize="18dp"
+                    android:background="@color/powderblue"
+                    android:layout_width="0dp"
+                    android:layout_weight="2"
+                    android:layout_height="wrap_content"/>
+
+
+
+            </LinearLayout>
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rv_uhf"
+                android:layout_marginTop="20dp"
+                android:layout_width="match_parent"
+                android:layout_height="160dp" />
+
         </LinearLayout>
         </ScrollView>
 
 
             <TextView
+                android:background="@color/background_tab_pressed"
                 android:layout_marginTop="10dp"
                 android:text="SCAN HEX DATA"
                 android:gravity="center"
@@ -135,7 +176,7 @@
                 android:layout_height="30dp" />
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="120dp">
+            android:layout_height="80dp">
         <LinearLayout
             android:orientation="vertical"
             android:layout_width="match_parent"
@@ -147,7 +188,7 @@
                 android:layout_gravity="center_horizontal"
                 android:textSize="16sp"
                 android:gravity="start"
-                android:minHeight="120dp"
+                android:minHeight="80dp"
                 android:lineSpacingExtra="5dp"
                 android:id="@+id/device_info"
                 android:layout_width="match_parent"
@@ -157,13 +198,13 @@
         <TextView
             android:layout_marginTop="10dp"
             android:paddingLeft="10dp"
-            android:text="FULL HEX DATA"
+            android:text=""
             android:gravity="center"
             android:layout_width="match_parent"
             android:layout_height="30dp" />
         <ScrollView
             android:layout_width="match_parent"
-            android:layout_height="100dp">
+            android:layout_height="60dp">
             <LinearLayout
                 android:orientation="vertical"
                 android:layout_width="match_parent"

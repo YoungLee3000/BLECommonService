@@ -1,3 +1,17 @@
 <resources>
     <string name="app_name">BLECommService</string>
+
+
+    <string name="scan_showresult">扫码结果会在屏幕中直接展示</string>
+
+
+    <string name="title">扫码</string>
+    <string name="scan_tip">将条码置于矩形框中以加快识别</string>
+
+    <string name="scan_connect_dialog">设备连接中...</string>
+    <string name="scan_connect_tips">
+        <![CDATA[<b>请长按读卡器BT键5秒至红灯闪烁</b>]]>,然后再开始扫码,直到连接成功界面跳转。若超时,则重新扫码。<![CDATA[<br/>]]>
+    </string>
+
+
 </resources>
