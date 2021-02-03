@@ -32,8 +32,10 @@ import com.nlscan.blecommservice.utils.UUIDManager;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Timer;
@@ -57,6 +59,7 @@ public class BleService extends Service{
     private final int MSG_WHAT_CHARGE_STATE  = 0x10; // get charge state
     private final int MSG_WHAT_RSSI          = 0x100; // get rssi
     private final int MSG_WHAT_ENABLE_BT          = 0x200; // enable bt
+    private final int MSG_WHAT_DEVICE_GET          = 0x300; // enable bt
 
 
     //uhf 数据相关
@@ -70,6 +73,7 @@ public class BleService extends Service{
 
     private LinkedList<String> mUhfList = new LinkedList<>();
     private LinkedList<String> mImuList = new LinkedList<>();
+    private Map<String,String> mDevicesMap = new HashMap<>();
 
     private static final String FAILED_STR = "failed";
     private static final int MAX_UHF_TAG = 15;
@@ -210,7 +214,8 @@ public class BleService extends Service{
 
 
             while (mSetStack.size() == 0){}
-            String resultStr = mSetStack.pop();
+            String resultStr = "";
+            if (mSetStack.size() > 0)   resultStr  = mSetStack.pop();
             Log.d(TAG,"the return str is " + resultStr);
 
             if (resultStr.startsWith("FF")){
@@ -338,7 +343,14 @@ public class BleService extends Service{
                         mBleController.getChargeState(mBluetoothGatt);
                     }
 
-                }else if (msg.what == MSG_WHAT_ENABLE_BT) {
+                }else if (msg.what == MSG_WHAT_DEVICE_GET){
+                    if (mBleController != null) {
+                        //get charge state
+                        mBleController.readDeviceInformation(mBluetoothGatt);
+                    }
+
+                }
+                else if (msg.what == MSG_WHAT_ENABLE_BT) {
                     if (mBluetoothAdapter != null) {
                         mBluetoothAdapter.enable();
                     }
@@ -551,8 +563,12 @@ public class BleService extends Service{
                                 Log.i(TAG, "Connected to LE succeed  [" + device.getAddress() + " " + device.getName() + "]");
                                 mIfConnect = true;
                                 //connect succeed , get battery info
+
+//                                boolean rel = mBleController.readDeviceInformation(mBluetoothGatt);
+//
+//                                Log.d(TAG,"the read infor result is " + rel);
                                 getBatteryInfo();
-                                removeAll(address);
+
                             } else {
                                 // not scan device , to disconnect.
                                 disconnect();
@@ -582,14 +598,19 @@ public class BleService extends Service{
 
 
     //移除所有已经绑定的设备
-    private void removeAll(String address){
+    private void removeAll(String currentAddress){
         Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
+        String deviceInforStr = mDevicesMap.get(currentAddress);
+        if (deviceInforStr == null) return;
         for(BluetoothDevice device : bondedDevices) {
-            if (device!=null && device.getAddress().equals(address)) continue;
+            if (device == null) continue;
+            if ( device.getAddress().equals(currentAddress)) continue;
+            if (!mDevicesMap.containsKey(device.getAddress())) continue;
             try {
                 Class btDeviceCls = BluetoothDevice.class;
                 Method removeBond = btDeviceCls.getMethod("removeBond");
-                if (device !=null && device.getName().startsWith("SR")){
+                String tempInfor = mDevicesMap.get(device.getAddress());
+                if (deviceInforStr.equals(tempInfor)){
                     removeBond.setAccessible(true);
                     removeBond.invoke(device);
                 }
@@ -613,6 +634,9 @@ public class BleService extends Service{
             if (!ENABLE_TEST) {//now connected , bluetooth will send battery info , 20200430
                 mHandler.removeMessages(MSG_WHAT_BATTERY);
                 mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY, 1200);
+                Log.d(TAG,"read the device information");
+                mHandler.removeMessages(MSG_WHAT_DEVICE_GET);
+                mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 800);
             }
             mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
             mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
@@ -855,6 +879,15 @@ public class BleService extends Service{
                 if (UUIDManager.BATTERY_LEVEL_UUID.toString().equals(characteristic.getUuid().toString())) {
                     //add by cms 20191225
                     mBleController.handleCharacteristicRead(BluetoothUtils.bytesToHexString(characteristic.getValue()));
+                }
+                else if (UUIDManager.DEVICE_INFORMATION_MODEL_UUID.toString().equals(characteristic.getUuid().toString())){
+                    String deviceInformation = BluetoothUtils.bytesToHexString(characteristic.getValue());
+                    Log.d(TAG,"the device information is " + deviceInformation);
+                    String deviceInforStr = BluetoothUtils.hexStringToString(deviceInformation);
+                    Log.d(TAG,"the device information str is " + deviceInforStr);
+                    mDevicesMap.put(mCurrentACLAddress,deviceInforStr);
+
+                    removeAll(mCurrentACLAddress);
                 }
             }else {
                 Log.e(TAG,"onCharacteristicRead error: " + status);

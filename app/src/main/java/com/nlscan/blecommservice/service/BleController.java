@@ -109,11 +109,38 @@ public class BleController {
         if (service == null)return false;
         BluetoothGattCharacteristic readCharact = service.getCharacteristic(UUIDManager.BATTERY_LEVEL_UUID);
 
-        gatt.setCharacteristicNotification(readCharact, true); // 设置监听
         if (readCharact == null)return false;
+        gatt.setCharacteristicNotification(readCharact, true); // 设置监听
+
 
         return gatt.readCharacteristic(readCharact);
     }
+
+
+
+    /**
+     * 读取设备的产商信息
+     * @param gatt
+     * @return
+     */
+    public boolean readDeviceInformation(BluetoothGatt gatt){
+        Log.d(TAG,"begin to read device information " );
+        if (gatt == null)return false;
+        BluetoothGattService service = gatt.getService(UUIDManager.DEVICE_INFORMATION_UUID);
+        Log.d(TAG,"the service is null " + (service == null));
+        if (service == null)return false;
+        BluetoothGattCharacteristic readCharact = service.getCharacteristic(UUIDManager.DEVICE_INFORMATION_MODEL_UUID);
+
+        if (readCharact == null)return false;
+        gatt.setCharacteristicNotification(readCharact, true); // 设置监听
+
+
+        return gatt.readCharacteristic(readCharact);
+    }
+
+
+
+
 
     /**
      *  post data to client

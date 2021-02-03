@@ -18,4 +18,8 @@ public class UUIDManager {
     public static final UUID BATTERY_SERVICE_UUID = UUID.fromString("0000180f-0000-1000-8000-00805f9b34fb");
     //Battery Level charact  , NOTIFY READ
     public static final UUID BATTERY_LEVEL_UUID = UUID.fromString("00002a19-0000-1000-8000-00805f9b34fb");
+
+    //获取产商信息
+    public static final UUID DEVICE_INFORMATION_UUID = UUID.fromString("0000180a-0000-1000-8000-00805f9b34fb");
+    public static final UUID DEVICE_INFORMATION_MODEL_UUID = UUID.fromString("00002a24-0000-1000-8000-00805f9b34fb");
 }
