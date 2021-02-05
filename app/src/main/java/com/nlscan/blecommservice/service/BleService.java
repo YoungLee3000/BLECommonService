@@ -1,6 +1,7 @@
 package com.nlscan.blecommservice.service;
 
 import android.app.Service;
+import android.app.TaskInfo;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -53,6 +54,7 @@ public class BleService extends Service{
     private String mLastConnectedDeviceAddress;
     private BleController mBleController;
     private String mCurrentACLAddress;//ACL BOUND STATUS 11
+    private String mConnectAddress = "";
     private boolean mIfConnect = false;
 
     private final int MSG_WHAT_BATTERY       = 0x00; // get battery level
@@ -562,6 +564,7 @@ public class BleService extends Service{
                                 foundDevice = true;
                                 Log.i(TAG, "Connected to LE succeed  [" + device.getAddress() + " " + device.getName() + "]");
                                 mIfConnect = true;
+                                mConnectAddress = device.getAddress();
                                 //connect succeed , get battery info
 
 //                                boolean rel = mBleController.readDeviceInformation(mBluetoothGatt);
@@ -600,16 +603,19 @@ public class BleService extends Service{
     //移除所有已经绑定的设备
     private void removeAll(String currentAddress){
         Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
+        Log.d(TAG,"devices map size is " + bondedDevices.size());
         String deviceInforStr = mDevicesMap.get(currentAddress);
         if (deviceInforStr == null) return;
         for(BluetoothDevice device : bondedDevices) {
             if (device == null) continue;
+            Log.d(TAG,"the device name is " + device.getName());
             if ( device.getAddress().equals(currentAddress)) continue;
             if (!mDevicesMap.containsKey(device.getAddress())) continue;
             try {
                 Class btDeviceCls = BluetoothDevice.class;
                 Method removeBond = btDeviceCls.getMethod("removeBond");
                 String tempInfor = mDevicesMap.get(device.getAddress());
+                Log.d(TAG,"the temp info is " + tempInfor);
                 if (deviceInforStr.equals(tempInfor)){
                     removeBond.setAccessible(true);
                     removeBond.invoke(device);
@@ -885,9 +891,9 @@ public class BleService extends Service{
                     Log.d(TAG,"the device information is " + deviceInformation);
                     String deviceInforStr = BluetoothUtils.hexStringToString(deviceInformation);
                     Log.d(TAG,"the device information str is " + deviceInforStr);
-                    mDevicesMap.put(mCurrentACLAddress,deviceInforStr);
+                    mDevicesMap.put(mConnectAddress,deviceInforStr);
 
-                    removeAll(mCurrentACLAddress);
+                    removeAll(mConnectAddress);
                 }
             }else {
                 Log.e(TAG,"onCharacteristicRead error: " + status);
