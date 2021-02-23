@@ -640,9 +640,12 @@ public class BleService extends Service{
             if (!ENABLE_TEST) {//now connected , bluetooth will send battery info , 20200430
                 mHandler.removeMessages(MSG_WHAT_BATTERY);
                 mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY, 1200);
-                Log.d(TAG,"read the device information");
+                Log.d(TAG,"read the device information2");
                 mHandler.removeMessages(MSG_WHAT_DEVICE_GET);
                 mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 800);
+
+                mHandler.removeMessages(MSG_WHAT_DEVICE_GET,1200);
+                mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 1600);
             }
             mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
             mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
