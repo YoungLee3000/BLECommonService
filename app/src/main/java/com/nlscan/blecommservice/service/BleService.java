@@ -641,11 +641,14 @@ public class BleService extends Service{
                 mHandler.removeMessages(MSG_WHAT_BATTERY);
                 mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY, 1200);
                 Log.d(TAG,"read the device information2");
+
+                //测试工具时去除
                 mHandler.removeMessages(MSG_WHAT_DEVICE_GET);
                 mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 800);
 
                 mHandler.removeMessages(MSG_WHAT_DEVICE_GET,1200);
                 mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 1600);
+                //测试工具时去除
             }
             mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
             mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
@@ -921,7 +924,13 @@ public class BleService extends Service{
      */
     private void solveUhfData(String uhfData){
 
-        if (uhfData.length() < 6) return;
+        if (uhfData.length() < 6){
+            if (uhfData.equals("06")){
+                mSetStack.add(uhfData);
+            }
+            return;
+
+        }
         Log.d(TAG,"UHF received data [" + uhfData.substring(0,6) + "]");
 
 

@@ -227,7 +227,19 @@ public class MainActivity extends Activity {
                                 public void onConfigCallback(final String str) throws RemoteException {
 
                                 }}, "@WLSCLP");
-                            handler.sendEmptyMessage(1);
+                            new Timer().schedule(new TimerTask() {
+                                @Override
+                                public void run() {
+                                    try {
+                                        if (mBleInterface.isBleAccess())
+                                            handler.sendEmptyMessage(2);
+                                        else
+                                            handler.sendEmptyMessage(1);
+                                    } catch (RemoteException e) {
+                                        e.printStackTrace();
+                                    }
+                                }
+                            },500);
                         } catch (RemoteException e) {
                             handler.sendEmptyMessage(2);
                             e.printStackTrace();
@@ -235,6 +247,11 @@ public class MainActivity extends Activity {
 
                     }
                 },1500);
+
+
+
+
+
             }
         });
 
@@ -290,9 +307,26 @@ public class MainActivity extends Activity {
             e.printStackTrace();
         }
         if (writeState.equals("failed")){
-            mScanResultText.setText("执行失败");
-            mScanResultText.setTextColor(Color.RED);
-            Toast.makeText(MainActivity.this, "执行失败", Toast.LENGTH_SHORT).show();
+
+            try {
+                writeState = mBleInterface.sendUhfCommand(str);
+
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+
+            if (writeState.equals("06")){
+                mScanResultText.setText("执行成功");
+                mScanResultText.setTextColor(Color.GREEN);
+                Toast.makeText(MainActivity.this, "执行成功", Toast.LENGTH_SHORT).show();
+                mScanResultText.setText(writeState);
+            }
+            else{
+                mScanResultText.setText("执行失败");
+                mScanResultText.setTextColor(Color.RED);
+                Toast.makeText(MainActivity.this, "执行失败", Toast.LENGTH_SHORT).show();
+            }
+
         }
 
 
