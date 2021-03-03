@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.nlscan.blecommservice"
+    package="com.nlscan.blecommonservice"
     android:sharedUserId="android.uid.system"
     >
 
@@ -25,7 +25,7 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".activity.MainActivity"
+            android:name="com.nlscan.blecommonservice.activity.MainActivity"
             android:configChanges="keyboardHidden|keyboard|orientation|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -35,18 +35,17 @@
 
         <activity
             android:theme="@style/MyAppTheme"
-            android:name=".activity.SearchActivity"
+            android:name="com.nlscan.blecommonservice.activity.SearchActivity"
             android:configChanges="keyboard|keyboardHidden" />
 
-        <activity android:name=".activity.CommonActivity" />
 
         <service
-            android:name=".service.BleService"
+            android:name="com.nlscan.blecommonservice.service.BleService"
             android:enabled="true"
             android:exported="true"
             android:process=":bleService">
             <intent-filter>
-                <action android:name="android.nlscan.intent.action.START_BLE_SERVICE"/>
+                <action android:name="android.nlscan.intent.action.START_BLE_UHF_SERVICE"/>
             </intent-filter>
         </service>
 

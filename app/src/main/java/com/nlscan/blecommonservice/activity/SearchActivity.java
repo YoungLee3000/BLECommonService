@@ -1,4 +1,4 @@
-package com.nlscan.blecommservice.activity;
+package com.nlscan.blecommonservice.activity;
 
 import android.Manifest;
 import android.app.Activity;
@@ -41,11 +41,9 @@ import android.widget.Toast;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 
-import com.huawei.hms.hmsscankit.ScanUtil;
-import com.huawei.hms.ml.scan.HmsScan;
-import com.huawei.hms.ml.scan.HmsScanAnalyzerOptions;
-import com.nlscan.blecommservice.R;
-import com.nlscan.blecommservice.utils.HexUtil;
+
+import com.nlscan.blecommonservice.R;
+import com.nlscan.blecommonservice.utils.HexUtil;
 
 
 import java.lang.ref.SoftReference;
@@ -250,21 +248,15 @@ public class SearchActivity extends Activity {
 
     //扫码回调
     private static final int FLAG_SCAN_RETURN = 2;
-    private static final int REQUEST_CODE_SCAN_ONE = 3;
-    private static final int REQUEST_CODE_DEFINE = 4;
+
     private static final int REQUEST_CODE_BITMAP = 5;
 
 
     //申请权限回调
     public static final int CAMERA_REQ_CODE = 111;
-    public static final int DEFINED_CODE = 222;
 
-    public static final int BITMAP_CODE = 333;
-    public static final int MULTIPROCESSOR_SYN_CODE = 444;
-    public static final int MULTIPROCESSOR_ASYN_CODE = 555;
-    public static final int GENERATE_CODE = 666;
-    public static final int DECODE = 1;
-    public static final int GENERATE = 2;
+
+
     public static final String DECODE_MODE = "decode_mode";
 
 
@@ -318,21 +310,7 @@ public class SearchActivity extends Activity {
         }
         //Customized View Mode
 
-        //Bitmap Mode
-        else if (requestCode == BITMAP_CODE) {
 
-            btnScan.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    Intent intent = new Intent(SearchActivity.this, CommonActivity.class);
-                    intent.putExtra(DECODE_MODE, BITMAP_CODE);
-                    SearchActivity.this.startActivityForResult(intent, REQUEST_CODE_BITMAP);
-                }
-            });
-
-
-
-        }
 
 
 
@@ -826,39 +804,6 @@ public class SearchActivity extends Activity {
                     obtainAddress(scanResult);
                 }
                 break;
-            case REQUEST_CODE_SCAN_ONE:
-            case REQUEST_CODE_DEFINE:
-                if (data != null){
-                    HmsScan obj = data.getParcelableExtra(ScanUtil.RESULT);
-                    if (obj != null){
-                        String scanResultHms = obj.getOriginalValue();
-                        Log.d(TAG,"the result is" + scanResultHms);
-                        obtainAddress(scanResultHms);
-                    }
-                    else{
-                    Toast.makeText(this,"无效码！",Toast.LENGTH_SHORT).show();
-                    }
-                }
-                break;
-            case REQUEST_CODE_BITMAP:
-                if (data != null){
-                    Parcelable[] parcel = data.getParcelableArrayExtra(CommonActivity.SCAN_RESULT);
-                    if (parcel != null && parcel.length > 0) {
-                        //Get one result.
-                        if (parcel.length == 1) {
-                            if (parcel[0] != null && !TextUtils.isEmpty(((HmsScan) parcel[0]).getOriginalValue())) {
-                                HmsScan obj = (HmsScan) parcel[0];
-                                String scanResultHms = obj.getOriginalValue();
-                                Log.d(TAG,"the result is" + scanResultHms);
-                                obtainAddress(scanResultHms);
-                            }
-                        }
-                    }
-                }
-                else{
-                    Toast.makeText(this,"无效码！",Toast.LENGTH_SHORT).show();
-                }
-
             default:
                 break;
         }

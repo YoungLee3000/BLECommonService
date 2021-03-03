@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BLECommService</string>
+    <string name="app_name">BLECommonService_UHF</string>
 
 
     <string name="scan_showresult">扫码结果会在屏幕中直接展示</string>

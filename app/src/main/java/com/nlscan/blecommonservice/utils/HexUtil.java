@@ -1,4 +1,4 @@
-package com.nlscan.blecommservice.utils;
+package com.nlscan.blecommonservice.utils;
 
 import android.text.TextUtils;
 
