@@ -138,31 +138,41 @@ public class MainActivity extends Activity {
                     e.printStackTrace();
                 }
 
-                if ("failed".equals(resultCode) ){
-                    Toast.makeText(MainActivity.this,"上电失败",Toast.LENGTH_SHORT).show();
-                    mScanResultText.setText("上电失败");
-                    mScanResultText.setTextColor(Color.RED);
-                    return;
-                }
+                if ( resultCode.length() < 10  ||  !resultCode.substring(6,10).equals("0000") ){
 
-
-                if (!resultCode.substring(6,10).equals("0000")){
-                    Toast.makeText(MainActivity.this,"上电失败",Toast.LENGTH_SHORT).show();
-                    mScanResultText.setText("上电失败");
-                    mScanResultText.setTextColor(Color.RED);
-                }
-                else {
                     try {
-                        mBleInterface.sendUhfCommand("7EFE001930320000000AFF05220000000032088D08FF032900BF004B22");
+                        Thread.sleep(300);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
 
+
+                    try {
+                        resultCode = mBleInterface.sendUhfCommand(sendCommand);
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
-                    Toast.makeText(MainActivity.this,"上电成功",Toast.LENGTH_SHORT).show();
-                    mScanResultText.setText("上电成功");
-                    mScanResultText.setTextColor(Color.GREEN);
+
+
+                    if (resultCode.length() < 10  || !resultCode.substring(6,10).equals("0000") ){
+                        Toast.makeText(MainActivity.this,"上电失败",Toast.LENGTH_SHORT).show();
+                        mScanResultText.setText("上电失败");
+                        mScanResultText.setTextColor(Color.RED);
+                        return;
+                    }
+
                 }
 
+
+                try {
+                    mBleInterface.sendUhfCommand("7EFE001930320000000AFF05220000000032088D08FF032900BF004B22");
+
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+                Toast.makeText(MainActivity.this,"上电成功",Toast.LENGTH_SHORT).show();
+                mScanResultText.setText("上电成功");
+                mScanResultText.setTextColor(Color.GREEN);
 
 
 
@@ -175,11 +185,30 @@ public class MainActivity extends Activity {
             public void onClick(View v) {
                 try {
                     mBleInterface.sendUhfCommand("7EFE00023130");
+
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+
+
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+
+                try {
                     mBleInterface.sendUhfCommand("FF00FC0130");
 
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
+
+
+
+
+
                 mScanResultText.setText("下电成功");
                 mScanResultText.setTextColor(Color.GREEN);
                 Toast.makeText(MainActivity.this,"下电成功",Toast.LENGTH_SHORT).show();
@@ -197,7 +226,27 @@ public class MainActivity extends Activity {
         btnReset.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                try {
+                    mBleInterface.sendUhfCommand("7EFE00023130");
 
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
+
+
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+
+                try {
+                    mBleInterface.sendUhfCommand("FF00FC0130");
+
+                } catch (RemoteException e) {
+                    e.printStackTrace();
+                }
 
                 new Timer().schedule(new TimerTask() {
                     @Override
@@ -212,7 +261,7 @@ public class MainActivity extends Activity {
                             e.printStackTrace();
                         }
                     }
-                },100);
+                },300);
 
 
 
@@ -280,6 +329,8 @@ public class MainActivity extends Activity {
                                 myRVAdapter.notifyDataSetChanged();
                                 rvUhf.scrollToPosition(dataList.size()-1);
                             }
+                            mScanResultText.setText("执行成功");
+                            mScanResultText.setTextColor(Color.GREEN);
                             tvCount.setText(""+dataList.size());
                         }
 
@@ -306,7 +357,12 @@ public class MainActivity extends Activity {
         } catch (RemoteException e) {
             e.printStackTrace();
         }
-        if (writeState.equals("failed")){
+
+        mScanResultText.setText("执行失败");
+        mScanResultText.setTextColor(Color.RED);
+        if (writeState.equals("failed") ){
+
+
 
             try {
                 writeState = mBleInterface.sendUhfCommand(str);
@@ -315,27 +371,26 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             }
 
-            if (writeState.equals("06")){
-                mScanResultText.setText("执行成功");
-                mScanResultText.setTextColor(Color.GREEN);
-                Toast.makeText(MainActivity.this, "执行成功", Toast.LENGTH_SHORT).show();
-                mScanResultText.setText(writeState);
-            }
-            else{
+            if (writeState.equals("failed")){
+//                mScanResultText.setText("执行成功");
+//                mScanResultText.setTextColor(Color.GREEN);
+//                Toast.makeText(MainActivity.this, "执行成功", Toast.LENGTH_SHORT).show();
+//                mScanResultText.setText(writeState);
                 mScanResultText.setText("执行失败");
                 mScanResultText.setTextColor(Color.RED);
                 Toast.makeText(MainActivity.this, "执行失败", Toast.LENGTH_SHORT).show();
             }
 
+
         }
 
 
-        else{
-            mScanResultText.setText("执行成功");
-            mScanResultText.setTextColor(Color.GREEN);
-            Toast.makeText(MainActivity.this, "执行成功", Toast.LENGTH_SHORT).show();
-            mScanResultText.setText(writeState);
-        }
+//        else{
+//            mScanResultText.setText("执行成功");
+//            mScanResultText.setTextColor(Color.GREEN);
+//            Toast.makeText(MainActivity.this, "执行成功", Toast.LENGTH_SHORT).show();
+//            mScanResultText.setText(writeState);
+//        }
 
     }
 

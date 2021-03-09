@@ -947,7 +947,7 @@ public class BleService extends Service{
             try {
 
 
-                int relLen =   Integer.parseInt(uhfData.substring(0,4),16) * 2 ;
+                int relLen =   Integer.parseInt(uhfData.substring(0,4),16) * 2 -4 ;
                 int readLen = 0;
                 int index = 4;
 

@@ -356,6 +356,7 @@ public class BluetoothUtils {
             Log.i(TAG," "+(remoteDevice.getName().equals(Build.MODEL))+" "+(remoteDevice.getType() == BluetoothDevice.DEVICE_TYPE_LE)+(bluetoothClass.getMajorDeviceClass() == 1280));
             if (remoteDevice != null
                     && remoteDevice.getName() != null
+                    && remoteDevice.getName().startsWith("SR")
                     //modify 20191218
                     //&& remoteDevice.getName().startsWith(String.format("BG%s",BluetoothUtils.getMacAddress(context)))
                     //&& remoteDevice.getName().startsWith(Build.MODEL)//add for device will changed , 20200324
