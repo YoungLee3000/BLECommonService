@@ -530,6 +530,8 @@ public class BleService extends Service{
     /**
      *  find BLE device
      */
+    private static final String STATE_CONNECT = "connect";
+    private static final String STATE_DISCONNECT = "dis_connect";
     boolean foundDevice = false;
     public void findBleDeviceToConnect(String address){
 
@@ -561,6 +563,11 @@ public class BleService extends Service{
                                 foundDevice = true;
                                 Log.i(TAG, "Connected to LE succeed  [" + device.getAddress() + " " + device.getName() + "]");
                                 mIfConnect = true;
+                                try {
+                                    mUhfCallback.onReceiveUhf(STATE_CONNECT);
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
                                 mConnectAddress = device.getAddress();
                                 //connect succeed , get battery info
 
@@ -1021,6 +1028,11 @@ public class BleService extends Service{
      */
     public void disconnect() {
         mIfConnect = false;
+        try {
+            mUhfCallback.onReceiveUhf(STATE_DISCONNECT);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         Log.i(TAG,"disconnect ble , release");
         if (mHandler != null){
             mHandler.removeMessages(MSG_WHAT_RSSI);
