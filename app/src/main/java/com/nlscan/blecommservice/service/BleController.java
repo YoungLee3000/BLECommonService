@@ -1,4 +1,4 @@
-package com.nlscan.blecommonservice.service;
+package com.nlscan.blecommservice.service;
 
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
@@ -9,12 +9,12 @@ import android.os.RemoteCallbackList;
 import android.os.RemoteException;
 import android.util.Log;
 
-import com.nlscan.blecommonservice.IBatteryChangeListener;
-import com.nlscan.blecommonservice.IBleScanCallback;
-import com.nlscan.blecommonservice.IScanConfigCallback;
-import com.nlscan.blecommonservice.utils.UUIDManager;
-import com.nlscan.blecommonservice.utils.BluetoothUtils;
-import com.nlscan.blecommonservice.utils.CodeType;
+import com.nlscan.blecommservice.IBatteryChangeListener;
+import com.nlscan.blecommservice.IBleScanCallback;
+import com.nlscan.blecommservice.IScanConfigCallback;
+import com.nlscan.blecommservice.utils.UUIDManager;
+import com.nlscan.blecommservice.utils.BluetoothUtils;
+import com.nlscan.blecommservice.utils.CodeType;
 
 import java.util.LinkedList;
 

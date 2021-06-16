@@ -1,4 +1,4 @@
-package com.nlscan.blecommonservice.activity;
+package com.nlscan.blecommservice.activity;
 
 import android.app.Activity;
 import android.content.BroadcastReceiver;
@@ -24,14 +24,14 @@ import android.widget.Toast;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.nlscan.blecommonservice.utils.Command;
-import com.nlscan.blecommonservice.IBatteryChangeListener;
-import com.nlscan.blecommonservice.IBleInterface;
-import com.nlscan.blecommonservice.IBleScanCallback;
-import com.nlscan.blecommonservice.IScanConfigCallback;
-import com.nlscan.blecommonservice.R;
-import com.nlscan.blecommonservice.utils.BluetoothUtils;
-import com.nlscan.blecommonservice.utils.CodeType;
+import com.nlscan.blecommservice.utils.Command;
+import com.nlscan.blecommservice.IBatteryChangeListener;
+import com.nlscan.blecommservice.IBleInterface;
+import com.nlscan.blecommservice.IBleScanCallback;
+import com.nlscan.blecommservice.IScanConfigCallback;
+import com.nlscan.blecommservice.R;
+import com.nlscan.blecommservice.utils.BluetoothUtils;
+import com.nlscan.blecommservice.utils.CodeType;
 
 import java.io.File;
 import java.io.FileWriter;

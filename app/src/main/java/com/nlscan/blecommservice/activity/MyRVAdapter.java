@@ -1,4 +1,4 @@
-package com.nlscan.blecommonservice.activity;
+package com.nlscan.blecommservice.activity;
 
 import android.content.Context;
 import android.view.LayoutInflater;
@@ -8,7 +8,7 @@ import android.widget.TextView;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.nlscan.blecommonservice.R;
+import com.nlscan.blecommservice.R;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package com.nlscan.blecommonservice.service;
+package com.nlscan.blecommservice.service;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
@@ -21,14 +21,14 @@ import android.support.annotation.Nullable;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.nlscan.blecommonservice.IUHFCallback;
-import com.nlscan.blecommonservice.utils.BluetoothUtils;
-import com.nlscan.blecommonservice.utils.Command;
-import com.nlscan.blecommonservice.IBatteryChangeListener;
-import com.nlscan.blecommonservice.IBleInterface;
-import com.nlscan.blecommonservice.IBleScanCallback;
-import com.nlscan.blecommonservice.IScanConfigCallback;
-import com.nlscan.blecommonservice.utils.UUIDManager;
+import com.nlscan.blecommservice.IUHFCallback;
+import com.nlscan.blecommservice.utils.BluetoothUtils;
+import com.nlscan.blecommservice.utils.Command;
+import com.nlscan.blecommservice.IBatteryChangeListener;
+import com.nlscan.blecommservice.IBleInterface;
+import com.nlscan.blecommservice.IBleScanCallback;
+import com.nlscan.blecommservice.IScanConfigCallback;
+import com.nlscan.blecommservice.utils.UUIDManager;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;

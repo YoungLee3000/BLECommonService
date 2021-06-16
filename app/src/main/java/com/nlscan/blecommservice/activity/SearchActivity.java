@@ -1,4 +1,4 @@
-package com.nlscan.blecommonservice.activity;
+package com.nlscan.blecommservice.activity;
 
 import android.Manifest;
 import android.app.Activity;
@@ -24,10 +24,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.Parcelable;
 import android.provider.Settings;
 import android.text.Html;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
@@ -42,8 +40,8 @@ import androidx.annotation.RequiresApi;
 import androidx.core.app.ActivityCompat;
 
 
-import com.nlscan.blecommonservice.R;
-import com.nlscan.blecommonservice.utils.HexUtil;
+import com.nlscan.blecommservice.R;
+import com.nlscan.blecommservice.utils.HexUtil;
 
 
 import java.lang.ref.SoftReference;

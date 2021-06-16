@@ -1,11 +1,11 @@
 // IBleInterface.aidl
-package com.nlscan.blecommonservice;
+package com.nlscan.blecommservice;
 
 // Declare any non-default types here with import statements
-import com.nlscan.blecommonservice.IUHFCallback;
-import com.nlscan.blecommonservice.IBleScanCallback;
-import com.nlscan.blecommonservice.IBatteryChangeListener;
-import com.nlscan.blecommonservice.IScanConfigCallback;
+import com.nlscan.blecommservice.IUHFCallback;
+import com.nlscan.blecommservice.IBleScanCallback;
+import com.nlscan.blecommservice.IBatteryChangeListener;
+import com.nlscan.blecommservice.IScanConfigCallback;
 
 interface IBleInterface {
     void setScanCallback(IBleScanCallback callback);

@@ -1,5 +1,5 @@
 // IScanCallback.aidl
-package com.nlscan.blecommonservice;
+package com.nlscan.blecommservice;
 
 // Declare any non-default types here with import statements
 

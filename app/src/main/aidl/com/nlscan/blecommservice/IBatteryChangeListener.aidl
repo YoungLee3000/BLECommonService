@@ -1,12 +1,12 @@
-// IUHFCallback.aidl
-package com.nlscan.blecommonservice;
+// IBatteryChangeListener.aidl
+package com.nlscan.blecommservice;
 
 // Declare any non-default types here with import statements
 
-interface IUHFCallback {
+interface IBatteryChangeListener {
     /**
      * Demonstrates some basic types that you can use as parameters
      * and return values in AIDL.
      */
-    void onReceiveUhf(String data);
+    void onBatteryChangeListener(int level);
 }

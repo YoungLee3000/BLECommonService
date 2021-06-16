@@ -1,4 +1,4 @@
-package com.nlscan.blecommonservice.utils;
+package com.nlscan.blecommservice.utils;
 
 import java.util.UUID;
 

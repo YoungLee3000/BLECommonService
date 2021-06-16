@@ -1,12 +1,12 @@
-// IBatteryChangeListener.aidl
-package com.nlscan.blecommonservice;
+// IScanConfigCallbakc.aidl
+package com.nlscan.blecommservice;
 
 // Declare any non-default types here with import statements
 
-interface IBatteryChangeListener {
+interface IScanConfigCallback {
     /**
      * Demonstrates some basic types that you can use as parameters
      * and return values in AIDL.
      */
-    void onBatteryChangeListener(int level);
+    void onConfigCallback(String str);
 }
