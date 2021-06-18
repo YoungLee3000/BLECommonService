@@ -17,29 +17,40 @@ import android.os.IBinder;
 import android.os.Message;
 import android.os.Parcelable;
 import android.os.RemoteException;
-import android.support.annotation.Nullable;
+import android.provider.Settings;
+import android.provider.SyncStateContract;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.nlscan.blecommservice.IUHFCallback;
+import androidx.annotation.Nullable;
+
+import com.nlscan.android.scan.ScanManager;
+import com.nlscan.android.scan.ScanSettings;
+import com.nlscan.blecommservice.IBleStateCallback;
+import com.nlscan.blecommservice.R;
 import com.nlscan.blecommservice.utils.BluetoothUtils;
 import com.nlscan.blecommservice.utils.Command;
 import com.nlscan.blecommservice.IBatteryChangeListener;
 import com.nlscan.blecommservice.IBleInterface;
 import com.nlscan.blecommservice.IBleScanCallback;
 import com.nlscan.blecommservice.IScanConfigCallback;
+import com.nlscan.blecommservice.utils.DeviceType;
+import com.nlscan.blecommservice.utils.LogUtil;
+import com.nlscan.blecommservice.utils.Setting;
 import com.nlscan.blecommservice.utils.UUIDManager;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class BleService extends Service{
+public class BleService extends Service implements Handler.Callback{
     private static final String TAG = "BleService";
     public static final boolean ENABLE_TEST = false;
 
@@ -59,6 +70,19 @@ public class BleService extends Service{
     private final int MSG_WHAT_RSSI          = 0x100; // get rssi
     private final int MSG_WHAT_ENABLE_BT          = 0x200; // enable bt
     private final int MSG_WHAT_DEVICE_GET          = 0x300; // enable bt
+	
+	
+	
+	
+	 public static final int MSG_WHAT_BT_STATE_CHANGED          = 0x300; // ACTION_STATE_CHANGED
+    public static final int MSG_WHAT_BT_BOND_STATE_CHANGED     = 0x310; // ACTION_BOND_STATE_CHANGED
+    public static final int MSG_WHAT_BT_ACL_DISCONNECTED       = 0x320; // ACTION_ACL_DISCONNECTED
+    public static final int MSG_WHAT_BT_ACL_CONNECTED          = 0x330; // ACTION_ACL_CONNECTED
+    public static final int MSG_WHAT_BT_CONNECTION_STATE_CHANGED   = 0x340; // ACTION_CONNECTION_STATE_CHANGED
+
+    public static final int  MSG_WHAT_UPDATE_SCAN_SETTINGS         = 0x400; // UPDATE_SCAN_SETTINGS
+    private static final int MSG_WHAT_ENABLE_BATTERY_NOTIFY        = 0x500;// ENABLE_BATTERY_NOTIFY
+    private static final int MSG_WHAT_ENABLE_UART_NOTIFY              = 0x600;// ENABLE_UART_NOTIFY
 
 
     //uhf 数据相关
@@ -94,8 +118,27 @@ public class BleService extends Service{
     protected final static int STATE_CONNECTED = -2;
     protected final static int STATE_CONNECTED_AND_READY = -3; // indicates that services were discovered
     protected final static int STATE_CLOSED = -4;
+	
+	private IBleStateCallback mBleStateCallback;
 
-    private IUHFCallback mUhfCallback;
+    private ScanManager mScanManager;
+    private Handler mHandler;
+    private BleReceiver mReceiver;
+
+    private String nameForState(int state){
+        if (state == STATE_DISCONNECTED){
+            return getString(R.string.disconnected);
+        }else if (state == STATE_CONNECTING){
+            return getString(R.string.connecting);
+        }else if (state == STATE_CONNECTED){
+            return getString(R.string.connected);
+        }else if (state == STATE_CONNECTED_AND_READY){
+            return getString(R.string.connected_ready);
+        }else if (state == STATE_CLOSED){
+            return getString(R.string.closed);
+        }
+        return "UnKnow State "+state;
+    }
 
     private IBleInterface.Stub stub = new IBleInterface.Stub() {
 
@@ -104,7 +147,7 @@ public class BleService extends Service{
             Log.d(TAG, "setScanCallback "+ callback);
             if (initialize()) {
                 if (mBleController != null){
-                    mBleController.setScanCallback(callback);
+                    mBleController.setScanCallback(callback,true);
                 }
                 //Auto find ble device to connect
                 //first to find
@@ -130,9 +173,9 @@ public class BleService extends Service{
                 return true;
             }
             if (mBleController != null && !TextUtils.isEmpty(str)){
-                String dataPacket = BluetoothUtils.getWriteDataPacket(BluetoothUtils.isHexString(str)?str:BluetoothUtils.stringtoHex(str));
+
                 if (callback != null)mBleController.setScanConfigOnceCallback(callback);//20191227 return config
-                boolean state = mBleController.writeBluetoothData(mBluetoothGatt, dataPacket);
+                boolean state = mBleController.writeBluetoothDataPacket(mBluetoothGatt, BluetoothUtils.isHexString(str)?str:BluetoothUtils.stringtoHex(str));
                 return state;
             }
             return false;
@@ -142,12 +185,13 @@ public class BleService extends Service{
         public void addBatteryLevelChangeListener(IBatteryChangeListener callback) throws RemoteException {
             if (mBleController != null) {
                 mBleController.addBatteryListener(callback);
-                if (mBleController != null) {
-                    mBleController.readBluetoothBattery(mBluetoothGatt);
-                    //get charge State
-                    mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
-                    mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
-                }
+
+                //主动读取电量
+                mBleController.readBluetoothBattery(mBluetoothGatt);
+
+                //get charge State
+                //mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
+                //mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
             }
         }
 
@@ -163,8 +207,8 @@ public class BleService extends Service{
             //find badge
             if (cmd == Command.CMD_FIND_BADGE){
                 if (mBleController != null){   // 频率2700F 持续 800Tms 最大音量 20V
-                    String dataPacket = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("#BEEPON4000F1000T20V;LEDONS1C1000D"));
-                    mBleController.writeBluetoothData(mBluetoothGatt, dataPacket);
+                    //String dataPacket = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("#BEEPON4000F1000T20V;LEDONS1C1000D"));
+                    mBleController.writeBluetoothData(mBluetoothGatt, "#BEEPON4000F1000T20V;LEDONS1C1000D");
                 }
             }
             // trigger once send battery level value
@@ -186,7 +230,7 @@ public class BleService extends Service{
          * @throws RemoteException
          */
         @Override
-        public String sendUhfCommand(String command) throws RemoteException {
+        public String writeData(String command) throws RemoteException {
             mSetStack.clear();
 
 //            if (command.substring(4,6).equals("22")) return "FF0422000004000002B76E";
@@ -232,7 +276,7 @@ public class BleService extends Service{
 
 
         @Override
-        public String getUhfTagData() throws RemoteException {
+        public String getCachedData() throws RemoteException {
 //            if (mUhfList.size() > 0) {
 
                 StringBuilder sb = new StringBuilder("");
@@ -280,27 +324,21 @@ public class BleService extends Service{
 
 
         @Override
-        public void clearUhfTagData() throws RemoteException {
+        public void clearCachedData() throws RemoteException {
             mUhfList.clear();
             mImuList.clear();
         }
 
-        @Override
-        public boolean isBleAccess() throws RemoteException {
-//            return mCurrentACLAddress != null;
-            return mIfConnect;
-        }
 
 
         @Override
-        public void setUhfCallback(IUHFCallback callback){
-            mUhfCallback = callback;
+        public void setBleStateCallback(IBleStateCallback callback){
+            mBleStateCallback = callback;
         }
 
 
 
     };
-    private Handler mHandler;
 
     @Nullable
     @Override
@@ -319,60 +357,10 @@ public class BleService extends Service{
     public void onCreate() {
         super.onCreate();
         Log.i(TAG,"service onCreate");
+        mHandler = new Handler(this);
+        mScanManager = ScanManager.getInstance();
 
-        IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(BluetoothDevice.ACTION_ACL_CONNECTED);//远程设备已连接，已绑定设备可能未更新
-        intentFilter.addAction(BluetoothDevice.ACTION_ACL_DISCONNECTED);//远程设备已断开连接
-        intentFilter.addAction(BluetoothDevice.ACTION_BOND_STATE_CHANGED);//绑定状态发送改变
-        intentFilter.addAction(BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED);//本机蓝牙连接状态变化
-        //intentFilter.addAction("nlscan.bluetooth.action.CONNECTION_STATE_CHANGED");//custom
-        intentFilter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);//蓝牙状态变化
-
-        mHandler = new Handler(){
-            @Override
-            public void handleMessage(Message msg) {
-                super.handleMessage(msg);
-                if (msg.what == MSG_WHAT_BATTERY){
-                    if (mBleController != null) {
-                        mBleController.readBluetoothBattery(mBluetoothGatt);
-                    }
-                }else if (msg.what == MSG_WHAT_CHARGE_STATE){
-                    if (mBleController != null) {
-                        //get charge state
-                        mBleController.getChargeState(mBluetoothGatt);
-                    }
-
-                }else if (msg.what == MSG_WHAT_DEVICE_GET){
-                    if (mBleController != null) {
-                        //get charge state
-                        mBleController.readDeviceInformation(mBluetoothGatt);
-                    }
-
-                }
-                else if (msg.what == MSG_WHAT_ENABLE_BT) {
-                    if (mBluetoothAdapter != null) {
-                        mBluetoothAdapter.enable();
-                    }
-                }else if (msg.what == MSG_WHAT_RSSI){
-                    if (ENABLE_TEST) {
-                        Log.i(TAG, "handleMessage read rssi " + mBluetoothGatt);
-
-                        if (mBluetoothGatt != null) {
-                            boolean result = mBluetoothGatt.readRemoteRssi();
-                            if (result) {
-                                sendEmptyMessageDelayed(MSG_WHAT_RSSI, 3000);
-
-                                String packet = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("@WLSRSS"));
-                                Log.i(TAG, "handleMessage read bg packet:  " + packet);
-                                mBleController.writeBluetoothData(mBluetoothGatt, packet);
-                            }
-                        }
-                    }
-                }
-
-            }
-        };
-        registerReceiver(mReceiver,intentFilter);
+        mReceiver = new BleReceiver(this, mHandler);
 
         //for test , 20200214
         if (initialize()){
@@ -384,116 +372,7 @@ public class BleService extends Service{
     }
 
 
-    /**
-     * 监听蓝牙连接状态
-     */
-    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            try {
-                Parcelable parcelable = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                BluetoothDevice device = null;
-                if (parcelable != null && parcelable instanceof BluetoothDevice) {
-                    device = (BluetoothDevice) parcelable;
-                }
-                if (BluetoothAdapter.ACTION_CONNECTION_STATE_CHANGED.equals(action)) {
-                    int newConnState = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, 0);
-                    if (device != null) {
-                        if (newConnState == BluetoothAdapter.STATE_CONNECTED) {
-                            /*Log.i(TAG, "ACTION_CONNECTION_STATE_CHANGED  STATE_CONNECTED: " + device.getName() +
-                                    " " + device.getAddress() + " boundState: " + device.getBondState());
-                            if (device.getBondState() == BluetoothDevice.BOND_BONDED &&  isBLEDevice(device.getAddress())) {
-                                //findBleDeviceToConnect(device.getAddress());
-                            }*/
-//                            mIfConnect = true;
-                        }else if (newConnState == BluetoothAdapter.STATE_DISCONNECTED) {
-                            Log.i(TAG, "ACTION_CONNECTION_STATE_CHANGED  STATE_DISCONNECTED: " + device.getName() +
-                                    " " + device.getAddress() + " boundState: " + device.getBondState());
-                            if (mBluetoothDeviceAddress != null && mBluetoothDeviceAddress.equals(device.getAddress())){
-                                if (device.getBondState() == BluetoothDevice.BOND_BONDED){
-                                    //no to disconnect
-                                }else {
-                                    disconnect();
-                                }
-                            }
-
-                            Log.d(TAG,"ble bluetooth disconnect");
-//                            mIfConnect = false;
-                        }
-                    }
-
-                }else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(action)){//远程已连接，本机可能还未连接上
-                    if (device != null) {
-                        String name = device.getName();
-                        Log.i(TAG, "action_acl_conneted: [" + name + " " + device.getAddress()+"] boundState: "+device.getBondState());
-
-                        if (device.getBondState() == BluetoothDevice.BOND_BONDED || device.getBondState() == BluetoothDevice.BOND_BONDING){//  本机蓝牙可能还在绑定中， BOND_BONDING
-                            synchronized (this){
-                                boolean bleDevice = BluetoothUtils.isBLEDevice(device.getAddress(),BleService.this);
-                                Log.i(TAG, "start enter to find Bounded device. "+bleDevice);
-                                if (bleDevice) {
-                                    findBleDeviceToConnect(device.getAddress());
-                                }
-                            }
-                        }
-                    }
-                }else if (BluetoothDevice.ACTION_ACL_DISCONNECTED.equals(action)){//在多设备和充电的情况下，不会调用 disconnect
-                    if (device != null) {
-                        String name = device.getName();
-                        Log.i(TAG, "action_acl_disconneted: " + name + " " + device.getAddress()+" "+device.getBondState());
-                        if (mBluetoothDeviceAddress != null && mBluetoothDeviceAddress.equals(device.getAddress())){
-                            if (device.getBondState() == BluetoothDevice.BOND_BONDED){
-                                //no to disconnect, because less to use settings do disconnect.
-                            }else {
-                                disconnect();
-                            }
-                        }
-                        if (mCurrentACLAddress != null && mCurrentACLAddress.equals(device.getAddress())){
-                            mCurrentACLAddress = null;
-                        }
-                    }
-                }else if (BluetoothDevice.ACTION_BOND_STATE_CHANGED.equals(action)){//绑定状态变化
-                    if (device != null) {
-                        int previewBoundState = intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, 0);
-                        String name = device.getName();
-                        Log.i(TAG, "ACTION_BOND_STATE_CHANGED: " + name + " " + device.getAddress()+" boundState: "+device.getBondState()+" preview: "+previewBoundState+" "+mCurrentACLAddress);
-                        if (((mCurrentACLAddress != null && mCurrentACLAddress.equals(device.getAddress()))
-                                || (mCurrentACLAddress == null && (mConnectionState!= STATE_CONNECTED && mConnectionState!= STATE_CONNECTED_AND_READY)))
-                                && device.getBondState()==BluetoothDevice.BOND_BONDED && previewBoundState == BluetoothDevice.BOND_BONDING){
-                            findBleDeviceToConnect(device.getAddress());
-                        }
-                    }
-                }/*else if ("nlscan.bluetooth.action.CONNECTION_STATE_CHANGED".equals(action)){
-                    int newConnState = intent.getIntExtra(BluetoothAdapter.EXTRA_CONNECTION_STATE, 0);
-                    if (device != null) {
-                        if (newConnState == BluetoothAdapter.STATE_CONNECTED) {
-                            //Log.i(TAG, "NLSCAN CONNECTION_STATE_CHANGED   STATE_CONNECTED " + device.getName() + " " + device.getAddress());
-
-                        }else if (newConnState == BluetoothAdapter.STATE_DISCONNECTED) {
-                            Log.i(TAG, "NLSCAN CONNECTION_STATE_CHANGED   STATE_DISCONNECTED " + device.getName() + " " + device.getAddress() );
-                            if (mBluetoothDeviceAddress != null && mBluetoothDeviceAddress.equals(device.getAddress())){
-                                disconnect();
-                            }
-                        }
-                    }
-                }*/else if (BluetoothAdapter.ACTION_STATE_CHANGED.equals(action)){
-                    //if (device != null){
-                        int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, 0);
-                        Log.i(TAG, "ACTION_STATE_CHANGED   STATE " + state+" mConnectionState: "+mConnectionState);
-                        if (state == BluetoothAdapter.STATE_OFF && (mConnectionState == STATE_CONNECTED||mConnectionState == STATE_CONNECTED_AND_READY)){
-                            disconnect();
-                        }
-                        //快速开关蓝牙
-                        if (state == BluetoothAdapter.STATE_ON && mConnectionState == STATE_CLOSED){
-                            findBleDeviceToConnect(null);
-                        }
-                    //}
-                }
-            }catch (Exception e){
-            }
-        }
-    };
+   
 
 
     /**
@@ -523,10 +402,96 @@ public class BleService extends Service{
         }
         if (mBleController == null) {
             mBleController = new BleController(this);
+            mBleController.setDeviceType(mDeviceType);
         }
         return true;
     }
 
+    @Override
+    public boolean handleMessage(Message msg) {
+        if (msg.what == MSG_WHAT_BATTERY) {
+            if (mBleController != null) {
+                Log.i(TAG, "read battery");
+                mBleController.readBluetoothBattery(mBluetoothGatt);
+            }
+        } else if (msg.what == MSG_WHAT_CHARGE_STATE) {
+            if (mBleController != null) {
+                //get charge state
+                mBleController.getChargeState(mBluetoothGatt);
+            }
+        } else if (msg.what == MSG_WHAT_RSSI) {
+            if (ENABLE_TEST) {
+                Log.i(TAG, "handleMessage read rssi " + mBluetoothGatt);
+
+                if (mBluetoothGatt != null) {
+                    boolean result = mBluetoothGatt.readRemoteRssi();
+                    if (result) {
+                        mHandler.sendEmptyMessageDelayed(MSG_WHAT_RSSI, 1400);
+
+                        //replace by jar 20201021
+                        //String packet = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("@WLSRSS"));
+                        //Log.i(TAG, "handleMessage read bg packet:  " + packet);
+                        mBleController.writeBluetoothDataPacket(mBluetoothGatt, "@WLSRSS");
+                    }
+                }
+            }
+        } else if (msg.what == MSG_WHAT_ENABLE_BT) {
+            if (mBluetoothAdapter != null) {
+                mBluetoothAdapter.enable();
+            }
+        }else if (msg.what == MSG_WHAT_BT_STATE_CHANGED) {
+            int state = msg.arg1;
+            Log.i(TAG, "BT_STATE_CHANGED   STATE " + state+" mConnectionState: "+mConnectionState);
+            if (state == BluetoothAdapter.STATE_OFF && (mConnectionState == STATE_CONNECTED||mConnectionState == STATE_CONNECTED_AND_READY)){
+                disconnect("BT OFF");
+            }
+            //快速开关蓝牙
+            //Log.i(TAG, "ACTION_STATE_CHANGED 1  STATE " + state+" mConnectionState: "+mConnectionState+" "+device);
+            if (state == BluetoothAdapter.STATE_ON && (mConnectionState == STATE_CLOSED || mConnectionState ==STATE_DISCONNECTED)){
+                findBleDeviceToConnect(null);
+            }
+        }else if (msg.what == MSG_WHAT_BT_BOND_STATE_CHANGED){
+            String deviceAddress = (String) msg.obj;
+            int previewBoundState = msg.arg1;
+            int bondState = msg.arg2;
+            Log.i(TAG, "BT_BOND_STATE_CHANGED: " + deviceAddress+" boundState: "+ bondState +" preview: "+previewBoundState+" "+mCurrentACLAddress+" filterAddressList: "+filterAddressList.size()+" "+filterAddressList.toString());
+
+            if (((mCurrentACLAddress != null && mCurrentACLAddress.equals(deviceAddress))
+                    || (mCurrentACLAddress == null && (mConnectionState!= STATE_CONNECTED && mConnectionState!= STATE_CONNECTED_AND_READY)))
+                    && bondState == BluetoothDevice.BOND_BONDED && previewBoundState == BluetoothDevice.BOND_BONDING){
+                if (deviceAddress != null && !filterAddressList.contains(deviceAddress)) {
+                    findBleDeviceToConnect(deviceAddress);
+                }
+            }
+        }else if (msg.what == MSG_WHAT_BT_ACL_DISCONNECTED){
+            String deviceAddress = (String) msg.obj;
+            int bondState = msg.arg1;
+            Log.i(TAG, "BT_ACL_DISCONNECTED: "  + deviceAddress+" boundState: "+ bondState);
+            if (mBluetoothDeviceAddress != null && mBluetoothDeviceAddress.equals(deviceAddress)){
+                if (bondState == BluetoothDevice.BOND_BONDED){
+                    //no to disconnect, because less to use settings do disconnect.
+                }else {
+                    disconnect("ACL DISCONNECTED");
+                }
+            }
+            if (mCurrentACLAddress != null && mCurrentACLAddress.equals(deviceAddress)){
+                mCurrentACLAddress = null;
+            }
+        }else if (msg.what == MSG_WHAT_BT_ACL_CONNECTED){
+            String deviceAddress = (String) msg.obj;
+            Log.i(TAG, "MSG_WHAT_BT_ACL_CONNECTED" +" filterAddressList: "+filterAddressList.size()+" "+filterAddressList.toString());
+            if (deviceAddress != null && !filterAddressList.contains(deviceAddress)) {
+                findBleDeviceToConnect(deviceAddress);
+            }
+        }else if (msg.what == MSG_WHAT_UPDATE_SCAN_SETTINGS){
+            initScanSettings();
+        }else if (msg.what == MSG_WHAT_ENABLE_BATTERY_NOTIFY){
+            enableBatteryNotification();
+        }else if (msg.what == MSG_WHAT_ENABLE_UART_NOTIFY){
+            enableUartNotification();
+        }
+        return true;
+    }
     /**
      *  find BLE device
      */
@@ -534,7 +499,6 @@ public class BleService extends Service{
     private static final String STATE_DISCONNECT = "dis_connect";
     boolean foundDevice = false;
     public void findBleDeviceToConnect(String address){
-
         Log.i(TAG, "findBleDeviceToConnect:  address:" + address + " adapter: "+(mBluetoothAdapter!=null)+" enable: "+(mBluetoothAdapter!=null ?mBluetoothAdapter.isEnabled():false));
         mCurrentACLAddress = null;
         if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
@@ -545,66 +509,180 @@ public class BleService extends Service{
             if (connectedDevicesList == null) return;
             Log.i(TAG, "findBleDeviceToConnect: BondedDevicesList " + connectedDevicesList.size());
             for (final BluetoothDevice device : connectedDevicesList) {
-
+                Log.i(TAG, "for each devices : "  + device.getAddress() + " " + device.getName()+" filterAddressList: "+filterAddressList.size()+" "+filterAddressList.toString());
                 if (BluetoothUtils.isBLEDevice(device.getAddress(), BleService.this)
+                        && !filterAddressList.contains(device.getAddress())
                         && (address == null || (address != null && device.getAddress().equals(address)))) { //PERIPHERAL_KEYBOARD 0x540 外围键盘设备
+
                     boolean connectState = BluetoothUtils.getConnectState(device);
                     Log.i(TAG, "getConnectedDevice: " + device.getAddress() + " " + device.getName() + "  state： " + connectState + " address: " + address);
                     if (connectState) {
-                        Log.i(TAG, "find connected BLE device: " + device.getAddress() + " Now to Connect " + mBluetoothGatt);
-                        disconnect();//disconnect first  modified 2020623
-                        //mHandler.postDelayed(new Runnable() {
-                        //    @Override
-                        //   public void run() {
+                        Log.i(TAG, "fonded bonded BLE device: " + device.getAddress() + " Now to Connect " + mBluetoothGatt);
+                        //disconnect("create new connection");//disconnect first  modified 2020623
+
                         Log.i(TAG, "start connect device");
+                        if (mBleController != null)mBleController.setUpgradeMode(false);//reset mode
                         boolean stat = connectDevice(device.getAddress());
-                        if (stat && mBluetoothGatt != null) {
-                            if (mBleController != null && mBleController.isClientCompatible(mBluetoothGatt)) {
-                                foundDevice = true;
-                                Log.i(TAG, "Connected to LE succeed  [" + device.getAddress() + " " + device.getName() + "]");
-                                mIfConnect = true;
-                                try {
-                                    mUhfCallback.onReceiveUhf(STATE_CONNECT);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
+                        if (stat){
+                            if (mBluetoothGatt != null && mError == 0) {
+                                if (mBleController != null && mBleController.isClientCompatible(mBluetoothGatt)) {
+                                    foundDevice = true;
+                                    Log.i(TAG, "Connected to LE succeed  [" + device.getAddress() + " " + device.getName() + "]");
+                                    LogUtil.saveLog("Connected succeed [" +  device.getName()+ " " + device.getAddress() + "]");
+                                    //connect succeed , get battery info
+
+                                    try {
+                                        mBleStateCallback.onReceiveState(STATE_CONNECT);
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                    }
+                                    mConnectAddress = device.getAddress();
+
+                                    BluetoothUtils.sendBatteryInfo(this,-10,mDeviceType);
+
+                                    //未检测到产商信息时改用蓝牙名称判断类型
+                                    if(device.getName().startsWith("SR")) mDeviceType = DeviceType.DT_CERES;
+                                    if(device.getName().contains("BS")) mDeviceType = DeviceType.DT_BS30;
+                                    mBleController.setDeviceType(mDeviceType);
+                                    mDevicesMap.put(mConnectAddress, mDeviceType);
+                                    removeAll(mConnectAddress);
+
+                                    //使用产商信息判断设备类型
+                                    getDeviceInfo();
+                                    return;
+                                } else {
+                                    // not scan device , to disconnect.
+                                    disconnect("device not Compatible");
                                 }
-                                mConnectAddress = device.getAddress();
-                                //connect succeed , get battery info
-
-//                                boolean rel = mBleController.readDeviceInformation(mBluetoothGatt);
-//
-//                                Log.d(TAG,"the read infor result is " + rel);
-                                getBatteryInfo();
-
-                            } else {
-                                // not scan device , to disconnect.
-                                disconnect();
                             }
-                        } else if (!stat && mBluetoothGatt == null) {
-                            Log.i(TAG, "connectGatt fail , reOpen bt   [" + device.getAddress() + " " + device.getName() + "]");
-                            //findBleDeviceToConnect(address);
-                            //2020628 , add for DeadObjectException , reOpen BT
-                            mBluetoothAdapter.disable();//disable bt first .
-                            mHandler.removeMessages(MSG_WHAT_ENABLE_BT);
-                            mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_BT, 50);//enable.
+                        }else {
+                            address = null;
+                            if (mBluetoothGatt == null) {
+                                if (mError == -1) {
+                                    Log.i(TAG, "connectGatt fail , reOpen bt   [" + device.getAddress() + " " + device.getName() + "]");
+                                    //findBleDeviceToConnect(address);
+                                    //2020628 , add for DeadObjectException , reOpen BT
+                                    mBluetoothAdapter.disable();//disable bt first .
+                                    mHandler.removeMessages(MSG_WHAT_ENABLE_BT);
+                                    mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_BT, 50);//enable.
+                                    return;
+                                }
+                            }else {
+                                if (device.getName() != null
+                                       // && device.getName().contains("BS30")
+                                ){
+                                    //do noThing
+                                }else {
+                                    noBleDeviceDoDisconnect(null);
+                                }
+                            }
                         }
-                        //Log.i(TAG, "end connect device");
-                        //}
-                        //},200);
                     }
-                    //Log.i(TAG, "return");
-                    return;
+                   // return;
                 }
             }
             if (address != null && !foundDevice){
                 mCurrentACLAddress = address;
             }
         }
-
     }
 
 
-    //移除所有已经绑定的设备
+    private int waitCount = 0;
+    /**
+     *  Connects to the GATT server hosted on the Bluetooth LE device.
+     * @param address
+     * @return
+     */
+    public boolean connectDevice(final String address) {
+        if (mBluetoothAdapter == null || address == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
+            return false;
+        }
+
+        // Previously connected device.  Try to reconnect.
+        if (mLastConnectedDeviceAddress != null && address.equals(mLastConnectedDeviceAddress)
+                && mBluetoothGatt != null) {
+            Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
+            if (mBluetoothGatt.connect()) {
+                mConnectionState = STATE_CONNECTING;
+                return true;
+            } else {
+                Log.d(TAG, "connect fail , disconnect to create new connection.");
+                disconnect("connect fail");
+                //return false;//modified 20200624 for DeadObjectException
+            }
+        }
+
+        //保证只能连接接收一个工牌的数据
+        if (mLastConnectedDeviceAddress != null && !address.equals(mLastConnectedDeviceAddress) && mBluetoothGatt != null){
+            try {
+                mBluetoothGatt.disconnect();
+                mBluetoothGatt.close();
+                mBluetoothGatt = null;
+            }catch (Exception e){}
+        }
+
+        BluetoothDevice remoteDevice = mBluetoothAdapter.getRemoteDevice(address);
+        if (remoteDevice == null) {
+            Log.w(TAG, "Device not found.  Unable to connect.");
+            return false;
+        }
+        // We want to directly connect to the device, so we are setting the autoConnect
+        // parameter to false.
+        BluetoothGatt bluetoothGatt = null;
+        try {
+            Log.v(TAG, "Trying to create a new connection.");
+            bluetoothGatt = remoteDevice.connectGatt(this, false, mGattCallback, BluetoothDevice.TRANSPORT_LE);
+        }catch (Exception e){
+            mError = -1;
+            Log.e(TAG, "connectGatt fail.");
+            if (bluetoothGatt != null){
+                bluetoothGatt.close();
+                bluetoothGatt = null;
+            }
+            return false;
+        }
+
+        if (bluetoothGatt == null){
+            mError = -1;
+            Log.e(TAG, "connectGatt fail. return false");
+            LogUtil.saveLog("connectGatt fail. return false!!!");
+            return false;
+        }
+
+        mBluetoothDeviceAddress = address;
+        mError = 0;
+        mConnectionState = STATE_CONNECTING;
+
+        waitCount = 5;
+        try {
+            synchronized (mLock) {
+                //Log.w(TAG, "wait connected");
+                while ((mConnectionState == STATE_CONNECTING || mConnectionState == STATE_CONNECTED) && mError == 0 && waitCount > 0) {
+                    Log.w(TAG, "wait waitCount: "+waitCount);
+                    mLock.wait(1000);
+                    Log.w(TAG, "wait notify or timeout errorCode: "+mError);
+                    waitCount --;
+                }
+            }
+            if (waitCount <= 0 || mError != 0 || mConnectionState != STATE_CONNECTED_AND_READY){
+                Log.w(TAG, "connectDevice return false !   errorCode: "+mError+" , "+nameForState(mConnectionState));
+                return false;
+            }
+        } catch (final InterruptedException e) {
+            Log.e(TAG, "Sleeping interrupted", e);
+            return false;
+        }
+
+        mLastConnectedDeviceAddress = mBluetoothDeviceAddress;
+        Log.w(TAG, "connectDevice return true !   errorCode: "+mError+" : "+nameForState(mConnectionState));
+        return true;
+    }
+	
+	
+	
+	//移除所有已经绑定的设备
     private void removeAll(String currentAddress){
         Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
         Log.d(TAG,"devices map size is " + bondedDevices.size());
@@ -620,7 +698,7 @@ public class BleService extends Service{
                 Method removeBond = btDeviceCls.getMethod("removeBond");
                 String tempInfor = mDevicesMap.get(device.getAddress());
                 Log.d(TAG,"the temp info is " + tempInfor);
-                if (deviceInforStr.equals(tempInfor)){
+                if (deviceInforStr.equals(DeviceType.DT_BS30) || deviceInforStr.equals(DeviceType.DT_CERES)){
                     removeBond.setAccessible(true);
                     removeBond.invoke(device);
                 }
@@ -632,31 +710,46 @@ public class BleService extends Service{
     }
 
 
+   
+	
+	
+	
+	
+	
+
     /**
      * 连接成功，获取工牌信息
      */
-    private void getBatteryInfo(){
+    private void getDeviceInfo(){
         //send connected info.2020611
-        BluetoothUtils.sendBatteryInfo(this,-1);
-
-        //get battery value
+        BluetoothUtils.sendBatteryInfo(this,-1,mDeviceType);
+        if ("".equals(mDeviceType)) BluetoothUtils.sendBatteryInfo(this,-1,DeviceType.DT_BS30);
         if (mHandler != null){
-            if (!ENABLE_TEST) {//now connected , bluetooth will send battery info , 20200430
+            Log.d(TAG,"send handler message");
+            mHandler.removeMessages(MSG_WHAT_ENABLE_UART_NOTIFY);
+            mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_UART_NOTIFY, 300);
+
+            mHandler.removeMessages(MSG_WHAT_ENABLE_BATTERY_NOTIFY);
+            mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_BATTERY_NOTIFY, 600);
+
+            // init scan settings
+            mHandler.removeMessages(MSG_WHAT_UPDATE_SCAN_SETTINGS);
+            mHandler.sendEmptyMessageDelayed(MSG_WHAT_UPDATE_SCAN_SETTINGS, 1000);
+
+            int anInt = Settings.System.getInt(getContentResolver(), "settings.enable.readbattery", 1);
+            //get battery value
+            if (!ENABLE_TEST && anInt == 1) {//now connected , bluetooth will send battery info , 20200430
+                Log.d(TAG,"get battery level");
                 mHandler.removeMessages(MSG_WHAT_BATTERY);
-                mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY, 1200);
-                Log.d(TAG,"read the device information2");
-
-                //测试工具时去除
-                mHandler.removeMessages(MSG_WHAT_DEVICE_GET);
-                mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 800);
-
-                mHandler.removeMessages(MSG_WHAT_DEVICE_GET,1200);
-                mHandler.sendEmptyMessageDelayed(MSG_WHAT_DEVICE_GET, 1600);
-                //测试工具时去除
+                mHandler.sendEmptyMessageDelayed(MSG_WHAT_BATTERY,
+                        Settings.System.getInt(getContentResolver(), "settings.enable.readbattery.delay", 1500));
             }
-            mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
-            mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);
+
+            //get charge state
+            /*mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
+            mHandler.sendEmptyMessageDelayed(MSG_WHAT_CHARGE_STATE, 2000);*/
         }
+
         if (ENABLE_TEST){
             //get rssi
             if (mHandler != null){
@@ -666,67 +759,122 @@ public class BleService extends Service{
         }
     }
 
+    private void enableUartNotification(){
+        if (mBluetoothGatt == null)return;
+        BluetoothGattService uartGattService = mBluetoothGatt.getService(UUIDManager.UART_SERVICE_UUID);// 获取到扫描服务的通道
+        if (uartGattService != null) {
+            //获取到Notify的Characteristic通道
+            BluetoothGattCharacteristic notifyCharacteristic = uartGattService.getCharacteristic(UUIDManager.UART_NOTIFY_UUID);
+            //注册Notify通知
+            boolean stat = BluetoothUtils.enableNotification(mBluetoothGatt, true, notifyCharacteristic,
+                    UUIDManager.UART_DESCRIPTOR_UUID);
 
-    /**
-     *  Connects to the GATT server hosted on the Bluetooth LE device.
-     * @param address
-     * @return
-     */
-    public boolean connectDevice(final String address) {
-        if (mBluetoothAdapter == null || address == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized or unspecified address.");
-            return false;
-        }
-
-        // Previously connected device.  Try to reconnect.
-        if (mBluetoothDeviceAddress != null && address.equals(mBluetoothDeviceAddress)
-                && mBluetoothGatt != null) {
-            Log.d(TAG, "Trying to use an existing mBluetoothGatt for connection.");
-            if (mBluetoothGatt.connect()) {
-                mConnectionState = STATE_CONNECTING;
-                return true;
-            } else {
-                return false;
+            Log.v(TAG, "register Uart notification " + stat + " ");
+            if (!stat){
+                if (mHandler != null) {
+                    mHandler.removeMessages(MSG_WHAT_ENABLE_UART_NOTIFY);
+                    mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_UART_NOTIFY, 400);
+                }
             }
         }
+    }
 
-        //保证只能连接接收一个工牌的数据
-        if (mBluetoothDeviceAddress != null && !address.equals(mBluetoothDeviceAddress) && mBluetoothGatt != null){
-            try {
-                mBluetoothGatt.disconnect();
-                mBluetoothGatt.close();
-                mBluetoothGatt = null;
-            }catch (Exception e){}
-        }
-
-        BluetoothDevice remoteDevice = mBluetoothAdapter.getRemoteDevice(address);
-        if (remoteDevice == null) {
-            Log.w(TAG, "Device not found.  Unable to connect.");
-            return false;
-        }
-        // We want to directly connect to the device, so we are setting the autoConnect
-        // parameter to false.
-        mBluetoothGatt = remoteDevice.connectGatt(this, false, mGattCallback, BluetoothDevice.TRANSPORT_LE);
-        Log.v(TAG, "Trying to create a new connection.");
-
-                       mBluetoothDeviceAddress = address;
-        mLastConnectedDeviceAddress = mBluetoothDeviceAddress;
-        mError = 0;
-        mConnectionState = STATE_CONNECTING;
-
-        try {
-            synchronized (mLock) {
-                while ((mConnectionState == STATE_CONNECTING || mConnectionState == STATE_CONNECTED) && mError == 0)
-                    mLock.wait();
+    private void  enableBatteryNotification(){
+        if (mBluetoothGatt == null)return;
+        BluetoothGattService batteryGattService = mBluetoothGatt.getService(UUIDManager.BATTERY_SERVICE_UUID);
+        if (batteryGattService != null){
+            //获取到Notify的Characteristic通道
+            BluetoothGattCharacteristic notifyCharacteristic = batteryGattService.getCharacteristic(UUIDManager.BATTERY_LEVEL_NOTIFY_ADN_READ_UUID);
+            //注册Notify通知
+            boolean stat = BluetoothUtils.enableNotification(mBluetoothGatt, true, notifyCharacteristic,UUIDManager.BATTERY_DESCRIPTOR_UUID);
+            Log.v(TAG, "register Battery notification " + stat + " ");
+            if (!stat && mConnectionState == STATE_CONNECTED_AND_READY){
+                if (mHandler != null) {
+                    mHandler.removeMessages(MSG_WHAT_ENABLE_BATTERY_NOTIFY);
+                    mHandler.sendEmptyMessageDelayed(MSG_WHAT_ENABLE_BATTERY_NOTIFY, 1000);
+                }
             }
-        } catch (final InterruptedException e) {
-            Log.e(TAG, "Sleeping interrupted", e);
         }
-        return true;
+    }
+
+    private void initScanSettings(){
+        Log.v(TAG, "initScanSettings : "+(mBluetoothGatt==null?"Disconnected":"Connected"));
+        if (mBleController != null && mBluetoothGatt != null){
+            StringBuffer stringBuffer = new StringBuffer();
+            stringBuffer.append(Settings.System.getInt(getContentResolver(), Setting.BADGE_SOUND_ENABLE,1) != 0? "@GRBENA1;":"@GRBENA0;");
+            stringBuffer.append(Settings.System.getInt(getContentResolver(), Setting.BADGE_VIBRATE_ENABLE,1) != 0? "GRVENA1;":"GRVENA0;");
+
+            int iScanMode = 0;
+            long lTimeOut = 50L;
+            long lScanRepeatTimeout = 0L;
+            Map<String, String> scanSettings = mScanManager.getScanSettings();
+            if (scanSettings != null){
+                String scanMode = scanSettings.get(ScanSettings.Global.SCAN_MODE);
+                if (TextUtils.isDigitsOnly(scanMode)){
+                    iScanMode = Integer.parseInt(scanMode);
+                }
+            }
+            //Log.v(TAG, "initScanSettings ： iScanMode: "+iScanMode);
+            if (iScanMode == 1){//连续扫描模式
+                if (scanSettings != null){
+                    String scanIntervalTime = scanSettings.get(ScanSettings.Global.SCAN_INTERVAL_TIME);//连续读码延时
+                    if (TextUtils.isDigitsOnly(scanIntervalTime)){
+                        lTimeOut = Long.parseLong(scanIntervalTime);
+                        if (lTimeOut < 1 )lTimeOut = 1;
+                        if (lTimeOut > 3600000 )lTimeOut = 3600000;
+                    }
+                }
+
+                if (scanSettings != null){
+                    String scanRepeatTimeout = scanSettings.get(ScanSettings.Global.SCAN_REPEAT_TIMEOUT);//重复条码间隔
+                    if (TextUtils.isDigitsOnly(scanRepeatTimeout)){
+                        lScanRepeatTimeout = Long.parseLong(scanRepeatTimeout);
+                        if (lScanRepeatTimeout < 1 )lScanRepeatTimeout = 1;
+                        if (lScanRepeatTimeout > 3600000 )lScanRepeatTimeout = 3600000;
+                    }
+                }
+
+                stringBuffer.append("SCNMOD3;");//连续扫描模式
+                stringBuffer.append("RRDENA1;");//开启相同条码延时
+                stringBuffer.append(String.format("RRDDUR%d;",lScanRepeatTimeout));//相同条码延时
+                stringBuffer.append("GRDENA1;");//开启读码成功延迟
+                stringBuffer.append(String.format("GRDDUR%d;",lTimeOut));//读码成功延时
+
+               // Log.v(TAG, "initScanSettings ： "+" 连续读码延时: "+lTimeOut+" 相同条码延时: "+lScanRepeatTimeout);
+            }else if (iScanMode == 2){//按下读码至超时
+                String scanTimeout = scanSettings.get(ScanSettings.Global.SCAN_TIME_OUT);
+                if (TextUtils.isDigitsOnly(scanTimeout)){
+                    lTimeOut = Long.parseLong(scanTimeout);
+                    if (lTimeOut < 0 )lTimeOut = 0;
+                    if (lTimeOut > 3600000 )lTimeOut = 3600000;
+                }
+
+                stringBuffer.append("SCNMOD4;");//按下读码至超时
+                stringBuffer.append(String.format("ORTSET%d;",lTimeOut));//读码超时时间
+                stringBuffer.append("GRDENA0;");//关闭读码成功延迟
+                //Log.v(TAG, "initScanSettings ： "+" 读码超时时间: "+lTimeOut);
+            }else {//触发扫码模式
+                String scanTimeout = scanSettings.get(ScanSettings.Global.SCAN_TIME_OUT);
+                if (TextUtils.isDigitsOnly(scanTimeout)){
+                    lTimeOut = Long.parseLong(scanTimeout);
+                    if (lTimeOut < 0 )lTimeOut = 0;
+                    if (lTimeOut > 3600000 )lTimeOut = 3600000;
+                }
+
+                stringBuffer.append("SCNMOD0;");
+                stringBuffer.append(String.format("ORTSET%d;",lTimeOut));//读码超时时间
+                stringBuffer.append("GRDENA0;");//关闭读码成功延迟
+            }
+
+            //Log.v(TAG, "initScanSettings ： "+stringBuffer.toString());
+            mBleController.writeBluetoothDataPacket(mBluetoothGatt,stringBuffer.toString());
+        }
     }
 
 
-    /**
+    private String mDeviceType = DeviceType.DT_BS30;
+	
+	/**
      * 蓝牙读写回调
      */
     private BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
@@ -744,6 +892,7 @@ public class BleService extends Service{
                     if (!success) {
                         mError = ERROR_MASK | 0x05;
                     } else {
+                        Log.v(TAG, "succeed return ! ");
                         // Just return here, lock will be notified when service discovery finishes
                         return;
                     }
@@ -757,7 +906,8 @@ public class BleService extends Service{
                 if (newState == BluetoothGatt.STATE_DISCONNECTED) {
                     mConnectionState = STATE_DISCONNECTED;
                 }
-                disconnect();
+                disconnect("connection error "+status);
+                LogUtil.saveLog("connection: "+BluetoothUtils.nameForBleState(status) +" "+status+"\n");
             }
             // Notify waiting thread
             synchronized (mLock) {
@@ -777,26 +927,33 @@ public class BleService extends Service{
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 mConnectionState = STATE_CONNECTED_AND_READY;
                 Log.v(TAG, "Services discovered" );
+				
+				
+				
+				
+				
 
-                mUartGattService = gatt.getService(UUIDManager.SERVICE_UUID);// 获取到服务的通道
+                mUartGattService = gatt.getService(UUIDManager.UART_SERVICE_UUID);// 获取到服务的通道
                 if (mUartGattService != null) {
                     mBluetoothGatt = gatt;
                     //获取到Notify的Characteristic通道
-                    BluetoothGattCharacteristic notifyCharacteristic = mUartGattService.getCharacteristic(UUIDManager.NOTIFY_UUID);
+                    BluetoothGattCharacteristic notifyCharacteristic = mUartGattService.getCharacteristic(UUIDManager.UART_NOTIFY_UUID);
                     //注册Notify通知
-                    boolean stat = BluetoothUtils.enableNotification(gatt, true, notifyCharacteristic);
+                    boolean stat = BluetoothUtils.enableNotification(gatt, true, notifyCharacteristic,UUIDManager.BATTERY_DESCRIPTOR_UUID);
                     Log.v(TAG, "register Uart notification " + stat + " ");
                 }
+				
+				if (mBleController != null){
+                    boolean stat = mBleController.readDeviceInformation(gatt);
+                    Log.v(TAG, "read model " + stat);
+//                    if (!stat){
+//                        mError = 0x4010;
+//                        noBleDeviceDoDisconnect(gatt);
+//                    }
+                	
+				}
 
-                // modified for battery notify in uart , 20191227
-                /*BluetoothGattService batteryServiceGatt = gatt.getService(UUIDManager.BATTERY_SERVICE_UUID);// 获取到服务的通道
-                if (batteryServiceGatt != null) {
-                    //获取到Notify的Characteristic通道
-                    BluetoothGattCharacteristic notifyCharacteristic = batteryServiceGatt.getCharacteristic(UUIDManager.BATTERY_LEVEL_UUID);
-                    //注册Notify通知
-                    boolean stat = BluetoothUtils.enableNotification(gatt, true, notifyCharacteristic);
-                    Log.i(TAG, "register Battery notification " + stat + " ");
-                }*/
+              
             } else {
                 mError = 0x4000 | status;
                 Log.w(TAG, "onServicesDiscovered fail " + status);
@@ -815,11 +972,20 @@ public class BleService extends Service{
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
 
-            if (UUIDManager.NOTIFY_UUID.toString().equals(characteristic.getUuid().toString())) {
+            if (UUIDManager.UART_NOTIFY_UUID.toString().equals(characteristic.getUuid().toString())) {
+
+
+
+                String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
+				
+				if ( DeviceType.DT_BS30.equals(mDeviceType)   && mBleController != null) {
+				    mBleController.sendScanResult(rawHexString, gatt);//发送数据
+                    return;
+                }
 
 
                 long pre = System.currentTimeMillis();
-                String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
+				
                 int packIndex = rawHexString.length() > 8 ? Integer.parseInt(rawHexString.substring(6,8),16) : 1;
                 if (packIndex > 1 && mLastPackIndex == packIndex)
                     return;
@@ -851,7 +1017,13 @@ public class BleService extends Service{
 
                 Log.d(TAG,"uhf solve cause " + (System.currentTimeMillis() - pre) + " ms" );
 
-            }else {
+            }else if (UUIDManager.BATTERY_LEVEL_NOTIFY_ADN_READ_UUID.toString().equals(characteristic.getUuid().toString())){
+                String rawHexString = BluetoothUtils.bytesToHexString(characteristic.getValue());
+                Log.v(TAG, "onCharacteristicChanged battery change: ["+ rawHexString + "]");
+                mBleController.handleBatteryChanged(rawHexString);
+            }
+			
+			else {
                 Log.v(TAG, "onCharacteristicChanged "+ characteristic.getUuid());
             }
         }
@@ -870,14 +1042,18 @@ public class BleService extends Service{
 //                rawHexString = BluetoothUtils.hexStringToString(rawHexString);
                 Log.v(TAG,"onCharacteristicWrite hex: [" + rawHexString +"]");
                 //on write finish handle
-
+				mBleController.onCharacteristicWriteFinishHandle(BluetoothUtils.bytesToHexString(characteristic.getValue()));
                 if (rawHexString != null && rawHexString.substring(4,6).equals("22"))
                     handleSetParam("FF0422000004000002B76E");
 
             }else {
                 Log.v(TAG,"onCharacteristicWrite failed " + status);
+                LogUtil.saveLog("onCharacteristicWrite failed: "+status+"\n");
             }
         }
+
+
+
 
         /**
          * 调用读取READ通道后返回的数据回调
@@ -889,24 +1065,54 @@ public class BleService extends Service{
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             super.onCharacteristicRead(gatt, characteristic, status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d(TAG, "onCharacteristicRead [" +BluetoothUtils.bytesToHexString(characteristic.getValue())+"] " + characteristic.getUuid());
+                Log.d(TAG, "onCharacteristicRead [" + BluetoothUtils.bytesToHexString(characteristic.getValue()) + "] " + characteristic.getUuid());
 
                 //add by cms for callbakc config 20191227
-                if (UUIDManager.BATTERY_LEVEL_UUID.toString().equals(characteristic.getUuid().toString())) {
+                if (UUIDManager.BATTERY_LEVEL_NOTIFY_ADN_READ_UUID.toString().equals(characteristic.getUuid().toString())) {
                     //add by cms 20191225
-                    mBleController.handleCharacteristicRead(BluetoothUtils.bytesToHexString(characteristic.getValue()));
-                }
-                else if (UUIDManager.DEVICE_INFORMATION_MODEL_UUID.toString().equals(characteristic.getUuid().toString())){
-                    String deviceInformation = BluetoothUtils.bytesToHexString(characteristic.getValue());
-                    Log.d(TAG,"the device information is " + deviceInformation);
-                    String deviceInforStr = BluetoothUtils.hexStringToString(deviceInformation);
-                    Log.d(TAG,"the device information str is " + deviceInforStr);
-                    mDevicesMap.put(mConnectAddress,deviceInforStr);
+                    mBleController.handleBatteryChanged(BluetoothUtils.bytesToHexString(characteristic.getValue()));
+                } else if (UUIDManager.DEVICE_INFORMATION_MODEL_UUID.toString().equals(characteristic.getUuid().toString())) {
 
-                    removeAll(mConnectAddress);
+
+                    //mBleController.handleCharacteristicModelRead(BluetoothUtils.bytesToHexString(characteristic.getValue()));
+                    byte[] value = characteristic.getValue();
+                    if (value != null && value.length > 0) {
+
+                        String deviceInformation = new String(value);
+                        Log.d(TAG, "the device information is " + deviceInformation);
+
+                        mDeviceType = deviceInformation;
+                        mBleController.setDeviceType(mDeviceType);
+                        mDevicesMap.put(mConnectAddress, deviceInformation);
+                        mConnectionState = STATE_CONNECTED_AND_READY;
+                        mBluetoothGatt = gatt;
+                        removeAll(mConnectAddress);
+
+//                        if (DeviceType.DT_BS30.equals(deviceInformation)) {
+//                            Log.d(TAG, "read model succeed !  ");
+//                            mConnectionState = STATE_CONNECTED_AND_READY;
+//                            mBluetoothGatt = gatt;
+//                        } else {
+//                            mConnectionState = STATE_CLOSED;
+//                            noBleDeviceDoDisconnect(gatt);
+//                        }
+                    } else {
+                        mConnectionState = STATE_CLOSED;
+                        noBleDeviceDoDisconnect(gatt);
+                    }
+                    // Notify waiting thread
+                    synchronized (mLock) {
+                        mLock.notifyAll();
+                    }
+
+
+
+
+
+
+                } else {
+                    Log.e(TAG, "onCharacteristicRead error: " + status);
                 }
-            }else {
-                Log.e(TAG,"onCharacteristicRead error: " + status);
             }
         }
 
@@ -1015,49 +1221,67 @@ public class BleService extends Service{
         Log.i(TAG,"service onDestroy");
         if (mReceiver != null)
         unregisterReceiver(mReceiver);
-        disconnect();
+        disconnect("service destroy");
         if (mBleController != null){
             mBleController.release();
             mBleController = null;
         }
     }
-
+    private List<String> filterAddressList = new ArrayList<>();
+    private void noBleDeviceDoDisconnect(BluetoothGatt gatt){
+        if (!TextUtils.isEmpty(mBluetoothDeviceAddress)){
+            if (!filterAddressList.contains(mBluetoothDeviceAddress)){
+                filterAddressList.add(mBluetoothDeviceAddress);
+            }
+        }
+        if (gatt != null){
+            gatt.disconnect();
+        }
+        Log.i(TAG,"No NL Device  do disconnect direct !");
+    }
     /**
      * After using a given BLE device, the app must call this method to ensure resources are
      * released properly.
      */
-    public void disconnect() {
-        mIfConnect = false;
+    public void disconnect(String logmsg) {
+        Log.i(TAG,"[ "+logmsg+" ] do disconnect !");
+		mIfConnect = false;
         try {
-            mUhfCallback.onReceiveUhf(STATE_DISCONNECT);
+            mBleStateCallback.onReceiveState(STATE_DISCONNECT);
         } catch (Exception e) {
             e.printStackTrace();
         }
-        Log.i(TAG,"disconnect ble , release");
         if (mHandler != null){
             mHandler.removeMessages(MSG_WHAT_RSSI);
             mHandler.removeMessages(MSG_WHAT_CHARGE_STATE);
-            //mHandler.removeMessages(MSG_WHAT_BATTERY);
+            mHandler.removeMessages(MSG_WHAT_BATTERY);
+            mHandler.removeMessages(MSG_WHAT_UPDATE_SCAN_SETTINGS);
+            mHandler.removeMessages(MSG_WHAT_ENABLE_BATTERY_NOTIFY);
+            mHandler.removeMessages(MSG_WHAT_ENABLE_UART_NOTIFY);
+            //mHandler.removeMessages(MSG_WHAT_ENABLE_BT);
         }
 
         //disconnected
-        BluetoothUtils.sendBatteryInfo(this,-10);
-        BluetoothUtils.sendBatteryChargeStateInfo(this,0);
+        BluetoothUtils.sendBatteryInfo(this,-10,mDeviceType);
+        BluetoothUtils.sendBatteryChargeStateInfo(this,0,mDeviceType);
 
         //don't send
         if (mBleController != null) {
-            //mBleController.handleCharacteristicRead("00");
+            mBleController.setUpgradeMode(false);//reset mode
         }
         if (mCurrentACLAddress != null) {
             mCurrentACLAddress = null;
         }
         mBluetoothDeviceAddress = "";
         mConnectionState = STATE_CLOSED;
+        LogUtil.saveLog("disconnect " +  (mBluetoothGatt != null));
         if (mBluetoothGatt == null) {
             return;
         }
-        mBluetoothGatt.disconnect();
-        mBluetoothGatt.close();
-        mBluetoothGatt = null;
+        try {
+            mBluetoothGatt.disconnect();
+            mBluetoothGatt.close();
+            mBluetoothGatt = null;
+        }catch (Exception e){}
     }
 }

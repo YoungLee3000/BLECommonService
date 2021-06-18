@@ -17,6 +17,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 public class BluetoothUtils {
     public static final String WRITE_PACKET_DATE_START = "7E0130303030"; //发送数据固定起始数据域格式
@@ -37,14 +38,49 @@ public class BluetoothUtils {
 
     private static final String TAG = "BleService-Util";
     /**
+     * Human-readable string helper for AdapterState
+     *
+     */
+    public static String nameForState(int state) {
+        switch (state) {
+            case BluetoothAdapter.STATE_OFF:
+                return "蓝牙已关闭";
+            case BluetoothAdapter.STATE_TURNING_ON:
+                return "蓝牙打开中";
+            case BluetoothAdapter.STATE_ON:
+                return "蓝牙已打开";
+            case BluetoothAdapter.STATE_TURNING_OFF:
+                return "蓝牙关闭中";
+            default:
+                return "?!?!? (" + state + ")";
+        }
+    }
+
+    /**
+     * Human-readable string helper for Ble state
+     *
+     */
+    public static String nameForBleState(int state) {
+        switch (state) {
+            case 0x08:
+                return "连接超时(工牌关机或超出连接范围)";//HCI_CONN_TIMEOUT
+            case 0x16:
+                return "主机断开连接";//HCI_CONN_TERMINATED_BY_LOCAL_HOST
+            default:
+                return "?!?!? (" + state + ")";
+        }
+    }
+
+
+    /**
      *  是否开启蓝牙通知
      * @param bluetoothGatt
      * @param enable
      * @param characteristic
      * @return
      */
-    public static boolean enableNotification(BluetoothGatt bluetoothGatt,
-                                             boolean enable, BluetoothGattCharacteristic characteristic) {
+    public static boolean enableNotification(BluetoothGatt bluetoothGatt, boolean enable,
+                                             BluetoothGattCharacteristic characteristic, UUID descriptorUuid) {
         if (bluetoothGatt == null || characteristic == null) {
             return false;
         }
@@ -54,7 +90,7 @@ public class BluetoothUtils {
             return false;
         }
         //获取到Notify当中的Descriptor通道  然后再进行注册
-        BluetoothGattDescriptor clientConfig = characteristic.getDescriptor(UUIDManager.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID);
+        BluetoothGattDescriptor clientConfig = characteristic.getDescriptor(descriptorUuid);
         if (clientConfig == null) {
             return false;
         }
@@ -242,29 +278,64 @@ public class BluetoothUtils {
     public static final String UPDATE_HEAD = "5DCB00005DCB";
     /**
      * 获取写数据的完整数据包， 包括统一协议和升级协议两种
-     * @param inputHex
+     * @param data
      * @return
      */
-    public static String getWriteDataPacket(String inputHex){
-        if (!TextUtils.isEmpty(inputHex) && inputHex.length()%2 == 0){
+    public static String getWriteDataPacket(String data, String deviceType){
+        if (!TextUtils.isEmpty(data) && data.length()%2 == 0){
 
 
-            String dataField = "";
-            if (inputHex.startsWith(UPDATE_HEAD)){
-                dataField = inputHex.replace(UPDATE_HEAD,"");
-            }else {
-                dataField = String.format("%s%s%s", WRITE_PACKET_DATE_START, inputHex, WRITE_PACKET_DATE_END);
+            if (DeviceType.DT_BS30.equals(deviceType)){
+                if (data.startsWith(START_PACKET_HEX))return data;
+                String inputHex = isHexString(data)?data:stringtoHex(data);
+                if(inputHex.length()%2 == 0){
+                    String dataField = "";
+                    if (inputHex.startsWith(UPDATE_HEAD)){
+                        dataField = inputHex.replace(UPDATE_HEAD,"");
+                    }else {
+                        dataField = String.format("%s%s%s", WRITE_PACKET_DATE_START, inputHex, WRITE_PACKET_DATE_END);
+                    }
+                    int len = dataField.length() / 2;
+                    byte[] bytes = CRC16.setParamCRC(getHexBytes(dataField));
+                    //String hexData = String.format("%s0101%02x%04x%s","", len, len, bytesToHexString(bytes));
+                    return dataField;
+                }
+            }
+            else{
+                String dataField = "";
+                if (data.startsWith(UPDATE_HEAD)){
+                    dataField = data.replace(UPDATE_HEAD,"");
+                }else {
+                    dataField = String.format("%s%s%s", WRITE_PACKET_DATE_START, data, WRITE_PACKET_DATE_END);
+                }
+
+                int len = dataField.length() / 2;
+
+                byte[] bytes = CRC16.setParamCRC(getHexBytes(dataField));
+
+                String hexData = String.format("5DCC0101%02x%04x%s",len, len, bytesToHexString(bytes));
+
+                return hexData;
             }
 
-            int len = dataField.length() / 2;
 
-            byte[] bytes = CRC16.setParamCRC(getHexBytes(dataField));
-
-            String hexData = String.format("5DCC0101%02x%04x%s",len, len, bytesToHexString(bytes));
-
-            return hexData;
         }
         return "";
+		
+		
+		
+
+
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
     }
 
 
@@ -356,7 +427,7 @@ public class BluetoothUtils {
             Log.i(TAG," "+(remoteDevice.getName().equals(Build.MODEL))+" "+(remoteDevice.getType() == BluetoothDevice.DEVICE_TYPE_LE)+(bluetoothClass.getMajorDeviceClass() == 1280));
             if (remoteDevice != null
                     && remoteDevice.getName() != null
-                    && remoteDevice.getName().startsWith("SR")
+                   // && remoteDevice.getName().startsWith("SR")
                     //modify 20191218
                     //&& remoteDevice.getName().startsWith(String.format("BG%s",BluetoothUtils.getMacAddress(context)))
                     //&& remoteDevice.getName().startsWith(Build.MODEL)//add for device will changed , 20200324
@@ -421,16 +492,21 @@ public class BluetoothUtils {
     }
 
     //disconnect -10
-    public static void sendBatteryInfo(Context context, int level) {
+    public static void sendBatteryInfo(Context context, int level, String deviceType) {
+
         Intent intent = new Intent("nlscan.action.BG_BATTERY_CHANGED");
+        if (DeviceType.DT_BS30.equals(deviceType))
+		    intent = new Intent("nlscan.action.BADGE_BATTERY_CHANGED");
         intent.putExtra("level", level);
         if (context != null) {
             context.sendBroadcast(intent);
         }
     }
 
-    public static void sendBatteryChargeStateInfo(Context context, int state) {
+    public static void sendBatteryChargeStateInfo(Context context, int state, String deviceType) {
         Intent intent = new Intent("nlscan.action.BG_BATTERY_CHARGE_STATE_CHANGED");
+        if (DeviceType.DT_BS30.equals(deviceType))
+            intent = new Intent("nlscan.action.BADGE_BATTERY_CHARGE_STATE_CHANGED");
         intent.putExtra("state", state);
         if (context != null) {
             context.sendBroadcast(intent);

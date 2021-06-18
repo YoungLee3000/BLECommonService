@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">BLECommonService_UHF</string>
+    <string name="app_name">BLECommonService</string>
 
 
     <string name="scan_showresult">扫码结果会在屏幕中直接展示</string>
@@ -13,5 +13,11 @@
         <![CDATA[<b>请长按读卡器BT键5秒至红灯闪烁</b>]]>,然后再开始扫码,直到连接成功界面跳转。若超时,则重新扫码。<![CDATA[<br/>]]>
     </string>
 
+
+	<string name="disconnected">disconnected </string>
+    <string name="connecting">connecting </string>
+    <string name="connected">connected </string>
+    <string name="connected_ready">connected,ready </string>
+    <string name="closed">closed </string>	
 
 </resources>

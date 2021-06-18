@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
 
         Log.i(TAG, "onCreate: ====================!!");
 
-        Intent service = new Intent("android.nlscan.intent.action.START_BLE_UHF_SERVICE");
+        Intent service = new Intent("android.nlscan.intent.action.START_BLE_SERVICE");
         service.setPackage("com.nlscan.blecommonservice");
         mConnection = new BleServiceConnection();
         bindService(service,mConnection, Context.BIND_AUTO_CREATE);
@@ -133,7 +133,7 @@ public class MainActivity extends Activity {
                 String resultCode = "failed";
 
                 try {
-                    resultCode = mBleInterface.sendUhfCommand(sendCommand);
+                    resultCode = mBleInterface.writeData(sendCommand);
                 } catch (RemoteException e) {
                     e.printStackTrace();
                 }
@@ -148,7 +148,7 @@ public class MainActivity extends Activity {
 
 
                     try {
-                        resultCode = mBleInterface.sendUhfCommand(sendCommand);
+                        resultCode = mBleInterface.writeData(sendCommand);
                     } catch (RemoteException e) {
                         e.printStackTrace();
                     }
@@ -165,7 +165,7 @@ public class MainActivity extends Activity {
 
 
                 try {
-                    mBleInterface.sendUhfCommand("7EFE001930320000000AFF05220000000032088D08FF032900BF004B22");
+                    mBleInterface.writeData("7EFE001930320000000AFF05220000000032088D08FF032900BF004B22");
 
                 } catch (RemoteException e) {
                     e.printStackTrace();
@@ -184,7 +184,7 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 try {
-                    mBleInterface.sendUhfCommand("7EFE00023130");
+                    mBleInterface.writeData("7EFE00023130");
 
                 } catch (RemoteException e) {
                     e.printStackTrace();
@@ -199,7 +199,7 @@ public class MainActivity extends Activity {
 
 
                 try {
-                    mBleInterface.sendUhfCommand("FF00FC0130");
+                    mBleInterface.writeData("FF00FC0130");
 
                 } catch (RemoteException e) {
                     e.printStackTrace();
@@ -227,7 +227,7 @@ public class MainActivity extends Activity {
             @Override
             public void onClick(View v) {
                 try {
-                    mBleInterface.sendUhfCommand("7EFE00023130");
+                    mBleInterface.writeData("7EFE00023130");
 
                 } catch (RemoteException e) {
                     e.printStackTrace();
@@ -242,7 +242,7 @@ public class MainActivity extends Activity {
 
 
                 try {
-                    mBleInterface.sendUhfCommand("FF00FC0130");
+                    mBleInterface.writeData("FF00FC0130");
 
                 } catch (RemoteException e) {
                     e.printStackTrace();
@@ -279,14 +279,9 @@ public class MainActivity extends Activity {
                             new Timer().schedule(new TimerTask() {
                                 @Override
                                 public void run() {
-                                    try {
-                                        if (mBleInterface.isBleAccess())
-                                            handler.sendEmptyMessage(2);
-                                        else
-                                            handler.sendEmptyMessage(1);
-                                    } catch (RemoteException e) {
-                                        e.printStackTrace();
-                                    }
+
+                                    handler.sendEmptyMessage(1);
+
                                 }
                             },500);
                         } catch (RemoteException e) {
@@ -321,7 +316,7 @@ public class MainActivity extends Activity {
                 if (mBleInterface!=null){
                     String uhfRel = null;
                     try {
-                        uhfRel = mBleInterface.getUhfTagData();
+                        uhfRel = mBleInterface.getCachedData();
                         if (uhfRel!=null && !"".equals(uhfRel)){
                             String[] strList = uhfRel.split(";");
                             for (String str : strList){
@@ -352,7 +347,7 @@ public class MainActivity extends Activity {
     private void writeUhfTest(String str){
         String writeState = "failed";
         try {
-            writeState = mBleInterface.sendUhfCommand(str);
+            writeState = mBleInterface.writeData(str);
 
         } catch (RemoteException e) {
             e.printStackTrace();
@@ -365,7 +360,7 @@ public class MainActivity extends Activity {
 
 
             try {
-                writeState = mBleInterface.sendUhfCommand(str);
+                writeState = mBleInterface.writeData(str);
 
             } catch (RemoteException e) {
                 e.printStackTrace();
@@ -491,7 +486,6 @@ public class MainActivity extends Activity {
             boolean writeState = false;
 
             try {
-                Log.d(TAG," the blue access " + mBleInterface.isBleAccess());
                 String str = ((EditText) findViewById(R.id.editText)).getText().toString();
 
 

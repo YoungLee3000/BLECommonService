@@ -2,7 +2,7 @@
 package com.nlscan.blecommservice;
 
 // Declare any non-default types here with import statements
-import com.nlscan.blecommservice.IUHFCallback;
+import com.nlscan.blecommservice.IBleStateCallback;
 import com.nlscan.blecommservice.IBleScanCallback;
 import com.nlscan.blecommservice.IBatteryChangeListener;
 import com.nlscan.blecommservice.IScanConfigCallback;
@@ -16,19 +16,17 @@ interface IBleInterface {
     //find badge ; set badge voice/ enable/dsiable
     void sendCommand(int cmd);
 
-    //send uhf command
-    String sendUhfCommand(String command);
+    //send command and receive
+    String writeData(String data);
 
-    //get uhf tag data
-    String getUhfTagData();
+    //get cached data
+    String getCachedData();
 
-    //clear the uhf tag data
-    void clearUhfTagData();
+    //clear the cached data
+    void clearCachedData();
 
-    //is the ble avilable
-    boolean isBleAccess();
 
-    //set uhf data callback
-    oneway void setUhfCallback(IUHFCallback callback);
+    //set ble state callback
+    oneway void setBleStateCallback(IBleStateCallback callback);
 
 }

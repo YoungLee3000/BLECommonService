@@ -7,11 +7,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.nlscan.blecommservice.IBatteryChangeListener;
 import com.nlscan.blecommservice.IBleScanCallback;
 import com.nlscan.blecommservice.IScanConfigCallback;
+import com.nlscan.blecommservice.utils.LogUtil;
 import com.nlscan.blecommservice.utils.UUIDManager;
 import com.nlscan.blecommservice.utils.BluetoothUtils;
 import com.nlscan.blecommservice.utils.CodeType;
@@ -29,19 +31,26 @@ public class BleController {
     private RemoteCallbackList<IBatteryChangeListener> mBadgeBatteryListeners;//battery
     private IScanConfigCallback scanConfigOneCallback;
     private IScanConfigCallback scanConfigSecondCallback;
+    private IScanConfigCallback mScanBleDataCallback;
+
+    private boolean mInUpgradeMode;
 
     //uhf相关
     private static final String RESPONE_UHF_PREFIX_HEX = "02FF";//uhf响应格式
     private static final String RESPONE_IMU_PREFIX_HEX = "02FE";//imu响应格式
-    private LinkedList<String> mUhfList = new LinkedList<>();
 
-    public String getUhfResult(){
-        return   mUhfList.size() > 0 ? mUhfList.poll() : null;
+
+
+    //设备类型
+    private String mDeviceType = "";
+    public void setDeviceType (String deviceType){
+        mDeviceType = deviceType;
     }
 
     public BleController(Context context) {
         mContext = context;
         mBadgeBatteryListeners = new RemoteCallbackList<>();
+        mInUpgradeMode = false;
     }
 
     /**
@@ -51,24 +60,20 @@ public class BleController {
      */
     public boolean isClientCompatible(final BluetoothGatt gatt) {
         if (gatt == null)return false;
-        final BluetoothGattService uartService = gatt.getService(UUIDManager.SERVICE_UUID);
+        final BluetoothGattService uartService = gatt.getService(UUIDManager.UART_SERVICE_UUID);
         if (uartService == null)
             return false;
-        final BluetoothGattCharacteristic characteristic = uartService.getCharacteristic(UUIDManager.NOTIFY_UUID);
-        if (characteristic == null || characteristic.getDescriptor(UUIDManager.CLIENT_CHARACTERISTIC_CONFIG_DESCRIPTOR_UUID) == null)
+        final BluetoothGattCharacteristic characteristic = uartService.getCharacteristic(UUIDManager.UART_NOTIFY_UUID);
+        if (characteristic == null || characteristic.getDescriptor(UUIDManager.UART_DESCRIPTOR_UUID) == null)
             return false;
         final BluetoothGattCharacteristic txCharacteristic = uartService.getCharacteristic(UUIDManager.UART_TX_CHARACTERISTIC_UUID);
         return txCharacteristic != null;
     }
 
-    /**
-     * 向 BLE 终端写入数据
-     * @param data 16进制
-     * @return
-     */
+
     public boolean writeBluetoothData(BluetoothGatt gatt, String data){
         if (gatt == null || data == null)return false;
-        BluetoothGattService service = gatt.getService(UUIDManager.SERVICE_UUID);
+        BluetoothGattService service = gatt.getService(UUIDManager.UART_SERVICE_UUID);
         if (service == null)return false;
         BluetoothGattCharacteristic writeCharact = service.getCharacteristic(UUIDManager.UART_TX_CHARACTERISTIC_UUID);
         if (writeCharact == null)return false;
@@ -82,6 +87,36 @@ public class BleController {
         return gatt.writeCharacteristic(writeCharact);
     }
 
+
+    /**
+     * 向 BLE 终端写入数据
+     * @param data 16进制
+     * @return
+     */
+	 public boolean writeBluetoothDataPacket(BluetoothGatt gatt, String data){
+        //return BadgeManager.getBadgeInterface().write(data);
+        if (gatt == null || TextUtils.isEmpty(data)){
+            Log.w(TAG, "BluetoothGatt is null or data is empty. don't do write. ");
+            return false;
+        }
+        String hexData = BluetoothUtils.getWriteDataPacket(data,mDeviceType);//first get packet
+        if (TextUtils.isEmpty(hexData))return false;
+        BluetoothGattService service = gatt.getService(UUIDManager.UART_SERVICE_UUID);
+        if (service == null)return false;
+        BluetoothGattCharacteristic writeCharact = service.getCharacteristic(UUIDManager.UART_TX_CHARACTERISTIC_UUID);
+        if (writeCharact == null)return false;
+        gatt.setCharacteristicNotification(writeCharact, true); // 设置监听
+        // 当数据传递到蓝牙之后
+        // 会回调BluetoothGattCallback里面的write方法
+        writeCharact.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        byte[] hexBytes = BluetoothUtils.getHexBytes(hexData);
+        writeCharact.setValue(hexBytes);
+        return gatt.writeCharacteristic(writeCharact);
+    }
+	
+	
+	
+
     /**
      * 0: 表示未插入电源
      * 1： 正在充电
@@ -92,8 +127,8 @@ public class BleController {
         //get charge state
         Log.v(TAG, " getChargeState "+gatt);
         if (gatt == null)return;
-        String dataPacket = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("@WLSQCS"));
-        writeBluetoothData(gatt, dataPacket);
+//        String dataPacket = BluetoothUtils.getWriteDataPacket(BluetoothUtils.stringtoHex("@WLSQCS"),mDeviceType);
+        writeBluetoothDataPacket(gatt, BluetoothUtils.stringtoHex("@WLSQCS"));
     }
 
 
@@ -106,8 +141,7 @@ public class BleController {
         if (gatt == null)return false;
         BluetoothGattService service = gatt.getService(UUIDManager.BATTERY_SERVICE_UUID);
         if (service == null)return false;
-        BluetoothGattCharacteristic readCharact = service.getCharacteristic(UUIDManager.BATTERY_LEVEL_UUID);
-
+        BluetoothGattCharacteristic readCharact = service.getCharacteristic(UUIDManager.BATTERY_LEVEL_NOTIFY_ADN_READ_UUID);
         if (readCharact == null)return false;
         gatt.setCharacteristicNotification(readCharact, true); // 设置监听
 
@@ -169,8 +203,8 @@ public class BleController {
      *
      * @param scanCallback
      */
-    public void setScanCallback(IBleScanCallback scanCallback) {
-        if (mScanCallback == null){
+    public void setScanCallback(IBleScanCallback scanCallback, boolean force) {
+        if (mScanCallback == null || force){
             this.mScanCallback = scanCallback;
         }else {
             //will replease
@@ -197,7 +231,7 @@ public class BleController {
                 writeBluetoothData(gatt, responsePacket);  modified , no response packet*/
                 return true;
             }else if (hexstring.startsWith(BluetoothUtils.START_BATTERY_COMMAND_HEX)){
-                handleCharacteristicRead(BluetoothUtils.subHexString(hexstring, 14,4));
+                handleBatteryChanged(BluetoothUtils.subHexString(hexstring, 14,4));
             }else if (hexstring.startsWith(BluetoothUtils.START_BATTERY_STATUS_COMMAND_HEX)){//5DDF0101010001 30 D7A3
                 handleChargeStateChange(BluetoothUtils.subHexString(hexstring, 14,4));
             }else {
@@ -205,6 +239,22 @@ public class BleController {
             }
         }
         return false;
+    }
+	
+	
+	
+	
+	
+	
+	public String getScanCallback() {
+       if (mScanCallback != null && mScanCallback1 != null){
+            return "READY2";
+        }else  if (mScanCallback != null){
+            return "READY";
+        }else if (mScanCallback1 != null){
+            return "READY1";
+        }
+        return "OUT";
     }
 
     /**
@@ -293,6 +343,44 @@ public class BleController {
         }
         return null;
     }
+	
+	
+	
+	
+	
+	/**
+     *
+     * @param hexString  raw hex data
+     *                   STX   ATTR  LEN       AL_TYPE   Symbology_ID   Data
+     *                   0x02  0x00  0x00000   0x3B      0x01
+     */
+    public void sendScanResult(String hexString, BluetoothGatt gatt){
+        //Log.v(TAG, "sendScanResult "+hexString);
+        if (hexString != null && hexString.length() > 0 && hexString.length()%2 == 0){
+            //Log.v(TAG, "sendScanResult 1"+hexString);020130303030 404753530063B52524444555230153B03
+            //                                         020130303030
+            if (hexString.startsWith(BluetoothUtils.GET_CONFIG_CALLBACK_PACKET_START)){//处理配置回包
+                if (hexString.endsWith(BluetoothUtils.GET_CONFIG_CALLBACK_PACKET_END)){
+                    if (mCurrentWritedNeedCallback){
+                        //查询 都会带 063B03
+                        handleConfigCallback(BluetoothUtils.fromHexString(BluetoothUtils.subHexString(hexString,12,6)));
+                    }
+                }else if (hexString.endsWith("3B03")){
+                    //写配置失败
+                    Log.v(TAG, "write config failed "+hexString);
+                }
+            }else if (hexString.startsWith(BluetoothUtils.START_COMMAND_HEX)  && hexString.length() == 30){//保留的清除配对
+                specialHandle(gatt, hexString);
+            }else if (mInUpgradeMode){
+                //Log.v(TAG, "sendScanResult 3"+hexString);
+                handleConfigCallback(hexString);
+            }else {
+                //Log.v(TAG, "sendScanResult 4"+hexString);
+                postData(hexString, 0, hexString);
+            }
+        }
+        mCurrentWritedNeedCallback = false;
+    }
 
 
 
@@ -308,6 +396,8 @@ public class BleController {
      * @param hexstring
      */
     private void specialHandle(BluetoothGatt gatt,final String hexstring) {
+        //5DCE0101060006CFA336787FD8995E
+        Log.v(TAG, "start command handle "+hexstring);
         if (hexstring.startsWith(BluetoothUtils.START_COMMAND_HEX) && hexstring.length() == 30) {
             Log.v(TAG, " command handle");
             String responsePacket = String.format("%s00%s%s%s",
@@ -323,13 +413,25 @@ public class BleController {
         }
     }
 
+    /**
+     * 解绑设备，连接新设备
+     * @param hexString
+     */
     public void onCharacteristicWriteFinishHandle(String hexString) {
-        if (mCurrentUnboundAddress != null && hexString != null && hexString.startsWith(BluetoothUtils.START_COMMAND_HEX)){
-            Log.v(TAG, " unboundDevice:  "+mCurrentUnboundAddress);
-            BluetoothUtils.unboundDevice(mCurrentUnboundAddress);
-            mCurrentUnboundAddress = null;
+        mCurrentWritedNeedCallback = false;
+        if (hexString != null){
+            if ( hexString.startsWith(BluetoothUtils.START_COMMAND_HEX)&&mCurrentUnboundAddress != null){
+                Log.v(TAG, " unboundDevice:  "+mCurrentUnboundAddress);
+                BluetoothUtils.unboundDevice(mCurrentUnboundAddress);
+                mCurrentUnboundAddress = null;
+            }else {
+                if (hexString.contains("2A") || hexString.contains("515259")){//* 查询cpu、蓝牙版本除外
+                    mCurrentWritedNeedCallback = true;
+                }
+            }
         }
     }
+    private boolean mCurrentWritedNeedCallback = false;
 
     public void setScanConfigOnceCallback(IScanConfigCallback scanConfigOnceCallback) {
         if (scanConfigOneCallback == null){
@@ -337,7 +439,14 @@ public class BleController {
         }else {
             this.scanConfigSecondCallback = scanConfigOnceCallback;
         }
+    }
 
+    public void setUpgradeMode(boolean upgrade){
+        mInUpgradeMode = upgrade;
+    }
+
+    public void setScanBleDataCallback(IScanConfigCallback scanConfigOnceCallback) {
+        this.mScanBleDataCallback = scanConfigOnceCallback;
     }
     /**
      * Battery Level
@@ -372,7 +481,7 @@ public class BleController {
             }
 
             if (data != null && data.startsWith("@WLSQCS")){//充电状态
-                BluetoothUtils.sendBatteryChargeStateInfo(mContext,data.endsWith("0")?0:1);
+                BluetoothUtils.sendBatteryChargeStateInfo(mContext,data.endsWith("0")?0:1,mDeviceType);
             }
         }
     }
@@ -402,13 +511,19 @@ public class BleController {
             }
         }
     }
+    /** Model name
+     * @param hexString
+     */
+    public void handleCharacteristicModelRead(String hexString) {
+        Log.i(TAG,"handleCharacteristicModelRead: "+hexString);
 
+    }
     /**
      * Battery Level
      * @param hexString
      */
-    public void handleCharacteristicRead(String hexString) {
-        Log.i(TAG,"handleCharacteristicRead: "+hexString);
+    public void handleBatteryChanged(String hexString) {
+        Log.i(TAG,"handleBatteryChanged: "+hexString);
         if (mBadgeBatteryListeners != null && hexString != null){
             int N = mBadgeBatteryListeners.beginBroadcast();
             for (int i = 0; i < N; i++) {
@@ -425,6 +540,9 @@ public class BleController {
             }
             mBadgeBatteryListeners.finishBroadcast();
         }
+        LogUtil.saveLog("badgeBatteryChange: "+(hexString.length() >= 4?
+                Integer.parseInt(BluetoothUtils.fromHexString(hexString)):
+                Integer.parseInt(hexString, 16))+"%");
         //send broadcast battery info
         sendBroadcast(hexString);
     }
@@ -434,7 +552,7 @@ public class BleController {
             int batteryLevel = hexString.length() >= 4 ?
                     Integer.parseInt(BluetoothUtils.fromHexString(hexString)) :
                     Integer.parseInt(hexString, 16);
-            BluetoothUtils.sendBatteryInfo(mContext, batteryLevel);
+            BluetoothUtils.sendBatteryInfo(mContext, batteryLevel,mDeviceType);
         }
     }
 
@@ -448,7 +566,7 @@ public class BleController {
         //send broadcast battery info
         if (hexString != null && hexString.length() == 2){
             int batteryState = hexString.equals("31")?1:0;
-            BluetoothUtils.sendBatteryChargeStateInfo(mContext, batteryState);
+            BluetoothUtils.sendBatteryChargeStateInfo(mContext, batteryState,mDeviceType);
         }
     }
 
@@ -472,6 +590,7 @@ public class BleController {
         mCurrentUnboundAddress = null;
         mScanCallback = null;
         mScanCallback1 = null;
+        mScanBleDataCallback = null;
         //clean all listener
         if (mBadgeBatteryListeners != null) {
             mBadgeBatteryListeners.kill();
